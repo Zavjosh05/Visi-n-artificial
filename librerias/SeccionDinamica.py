@@ -60,3 +60,29 @@ class SeccionDinamica(ctk.CTkFrame):
 
         # Espaciado final
         ctk.CTkLabel(self, text="").grid(row=fila_actual, column=0, pady=(0, 15))
+
+    def cargar_subsecciones(self, subsecciones_config, panel):
+        """
+        Convierte la configuración de subsecciones en botones dinámicos.
+
+        :param subsecciones_config: lista con (titulo_subseccion, lista_botones, color)
+        :param panel: panel donde mostrar los resultados
+        :return: lista de subsecciones con botones convertidos
+        """
+        subsecciones_resultado = []
+
+        for sub_titulo, botones, color in subsecciones_config:
+            botones_convertidos = []
+            for texto, funcion_path, tab in botones:
+                modulo, metodo = funcion_path.split(".")
+                funcion = getattr(getattr(self, modulo), metodo)
+
+                requiere_obj = "vecindad" in metodo.lower()  # ejemplo para casos especiales
+                botones_convertidos.append(
+                    (texto, lambda f=funcion, t=texto, tb=tab, r=requiere_obj:
+                        self.aplicar_funcion_generica(f, panel, t, tabview=tb, requiere_objetos=r))
+                )
+
+            subsecciones_resultado.append((sub_titulo, botones_convertidos, color))
+
+        return subsecciones_resultado

@@ -1,80 +1,62 @@
-import customtkinter as ctk
-from librerias.SeccionDinamica import SeccionDinamica
+def aplicar_ajuste_generico(self, funcion, panel, titulo, actualizar=True):
+    """
+    Aplica cualquier función de ajuste de brillo/contraste y muestra el resultado.
 
-class DemoApp(ctk.CTk):
-    def __init__(self):
-        super().__init__()
-        self.title("Demo SeccionDinamica")
-        self.geometry("400x600")
+    :param funcion: función a ejecutar (ej: self.ajustes_brillo.correccion_gamma)
+    :param panel: panel donde mostrar el resultado
+    :param titulo: texto a mostrar en el título
+    :param actualizar: si debe actualizar la imagen en memoria
+    """
+    if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
+        return
 
-        # Sidebar principal
-        self.sidebar_frame = ctk.CTkFrame(self, width=250)
-        self.sidebar_frame.pack(side="left", fill="y", padx=10, pady=10)
+    try:
+        imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
+        if imagen_procesada is not None:
+            if actualizar:
+                self.imagen_display[self.indice_actual] = imagen_procesada
 
-        # ===============================
-        # 1. Sección con botones simples
-        # ===============================
-        self.guardar_frame = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="💾 Guardar Resultado",
-            botones=[("Guardar Imagen", self.guardar_imagen)],
-            default_color="#229954"
-        )
-        self.guardar_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+            self.mostrar_imagen(
+                panel,
+                imagen_procesada,
+                f"{titulo}\nImagen {self.indice_actual+1}"
+            )
+            self.tabview.set("🔧 Básico")
+        else:
+            self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual+1}")
 
-        # ===============================
-        # 2. Sección con subsecciones
-        # ===============================
-        self.ruido_frame = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔊 Ruido y Filtros",
-            subsecciones=[
-                ("Agregar Ruido:", [
-                    ("🧂 Sal y Pimienta", self.ruido_sal_pimienta),
-                    ("📡 Gaussiano", self.ruido_gaussiano)
-                ], "#001A61"),
-                ("Filtros Pasa-bajas:", [
-                    ("📈 Promediador", self.filtro_promediador),
-                    ("📈 Mediana", self.filtro_mediana)
-                ], "#0A4B43"),
-                ("Filtros Pasa-altas:", [
-                    ("📈 Sobel", self.filtro_sobel),
-                    ("📈 Canny", self.filtro_canny)
-                ], "#29164A")
-            ]
-        )
-        self.ruido_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+    except Exception as e:
+        self.mostrar_mensaje(f"❌ Error: {str(e)}")
 
-        # ===============================
-        # 3. Sección en modo mixto
-        # ===============================
-        self.procesamiento_frame = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="⚙️ Procesamiento",
-            botones=[("▶️ Ejecutar Todo", self.ejecutar_todo)],
-            subsecciones=[
-                ("Preprocesamiento:", [
-                    ("🔧 Normalizar", self.preprocesar_normalizar),
-                    ("🔧 Escalar", self.preprocesar_escalar)
-                ], "#444444")
-            ]
-        )
-        self.procesamiento_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+# botones_config.py
 
-    # ===============================
-    # Funciones de ejemplo
-    # ===============================
-    def guardar_imagen(self): print("✅ Imagen guardada")
-    def ruido_sal_pimienta(self): print("✅ Ruido Sal y Pimienta agregado")
-    def ruido_gaussiano(self): print("✅ Ruido Gaussiano agregado")
-    def filtro_promediador(self): print("✅ Filtro Promediador aplicado")
-    def filtro_mediana(self): print("✅ Filtro Mediana aplicado")
-    def filtro_sobel(self): print("✅ Filtro Sobel aplicado")
-    def filtro_canny(self): print("✅ Filtro Canny aplicado")
-    def ejecutar_todo(self): print("▶️ Ejecutando todo el pipeline...")
-    def preprocesar_normalizar(self): print("🔧 Normalizando datos...")
-    def preprocesar_escalar(self): print("🔧 Escalando datos...")
+# =====================
+# Ajustes de brillo
+# =====================
+ajustes_botones = [
+    ("🔆 Corrección Gamma", "ajustes_brillo.correccion_gamma"),
+    ("📊 Ecualización Adaptativa", "ajustes_brillo.ecualizacion_adaptativa"),
+]
 
-if __name__ == "__main__":
-    app = DemoApp()
-    app.mainloop()
+
+import botones_config as cfg
+
+# Resolver funciones de ajustes
+ajustes_btns = []
+for texto, funcion_path in cfg.ajustes_botones:
+    modulo, metodo = funcion_path.split(".")
+    funcion = getattr(getattr(self, modulo), metodo)
+
+    ajustes_btns.append(
+        (texto, lambda f=funcion, t=texto:
+            self.aplicar_ajuste_generico(f, self.panel_basico, t))
+    )
+
+# Crear sección Ajustes
+self.ajustes_frame = SeccionDinamica(
+    master=self.sidebar_frame,
+    titulo="🔧 Básico",
+    botones=ajustes_btns,
+    default_color="#004477"
+)
+self.ajustes_frame.grid(row=4, column=0, padx=20, pady=10, sticky="ew")

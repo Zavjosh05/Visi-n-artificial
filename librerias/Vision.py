@@ -23,7 +23,7 @@ class Vision:
             abs_filtered = cv.convertScaleAbs(filtered)
             edges = np.maximum(edges, abs_filtered)
 
-        return img
+        return edges
 
     def sobel(self, img):
 

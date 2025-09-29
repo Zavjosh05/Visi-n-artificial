@@ -73,3 +73,8 @@ botones_segmentacion = [
     ("🎯 Vecindad 8", "aplicar_vecindad_8"),
     ("📏 Análisis de Objetos", "aplicar_analisis_objetos")
 ]
+
+#Row: 8 - sintaxis: (nombre del boton, clase(delcarada anteriormente).metodo,tabview,panel,texto que quieran que aparezca)
+botones_vision = [
+    ("Mascaras de Kirsch","vision.mascaras_kirsch","✂️ Segmentación","panel_segmentacion","Mascaras de kirsch")
+]

@@ -1,3 +1,5 @@
+import functools
+
 import matplotlib.pyplot as plt
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -73,6 +75,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             font=ctk.CTkFont(size=20, weight="bold")
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
+        self.crear_panel_principal()
 
         botones_procesamiento = [(texto,getattr(self,comando)) for texto, comando in btn.botones_procesamiento]
         botones_ajustes_de_brillo = [(texto,getattr(self,comando)) for texto, comando in btn.botones_ajustes_de_brillo]
@@ -80,7 +83,11 @@ class InterfazProcesadorImagenes(ctk.CTk):
         botones_ruido = [(texto,getattr(self,comando)) for texto, comando in btn.botones_ruido]
         botones_filtros_pasa_bajas = [(texto,getattr(self,comando)) for texto, comando in btn.botones_filtros_pasa_altas]
         botones_filtros_pasa_altas = [(texto,getattr(self,comando)) for texto, comando in btn.botones_filtros_pasa_bajas]
-        botones_segmentacion = [(texto,getattr(self,comando)) for texto, comando in btn.botones_segmentacion]
+        #botones_segmentacion = [(texto,getattr(self,comando)) for texto, comando in btn.botones_segmentacion]
+
+        botones_vision = self.cargar_botones(btn.botones_vision)
+
+
 
         # Sección de carga de imágenes
         self.crear_seccion_carga()
@@ -137,23 +144,29 @@ class InterfazProcesadorImagenes(ctk.CTk):
         )
         seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
 
-        seccion_segmentacion = SeccionDinamica(
+        seccion_vision = SeccionDinamica(
             master=self.sidebar_frame,
-            titulo="✂️ Segmentación",
-            botones=botones_segmentacion,
-            default_color="#631D29",
-            hover_color="#000000"
+            titulo="Vision",
+            botones=botones_vision,
+            default_color="#0A4B43",
+            hover_color="#000000",
         )
-        seccion_segmentacion.grid(row=8, column=0, padx=20, pady=(20, 10))
+        seccion_vision.grid(row=8, column=0, padx=20, pady=(10, 10))
 
-
-        #self.crear_seccion_vision()
+        #seccion_segmentacion = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="✂️ Segmentación",
+        #     botones=botones_segmentacion,
+        #     default_color="#631D29",
+        #     hover_color="#000000"
+        # )
+        # seccion_segmentacion.grid(row=8, column=0, padx=20, pady=(20, 10))
 
         # Botón de guardar
         self.crear_seccion_guardar()
 
         # Panel principal con pestañas
-        self.crear_panel_principal()
+        #self.crear_panel_principal()
 
         # Configurar el selector de tema
         self.crear_selector_tema()
@@ -244,67 +257,6 @@ class InterfazProcesadorImagenes(ctk.CTk):
             )
             btn.grid(row=i + len(botones_carga_imagen1) + 6, column=0, padx=20, pady=3, sticky="ew")
 
-    def analizar_objetos(self, img_binaria, img_original, min_area=200):
-        if len(img_original.shape) == 2 or (len(img_original.shape) == 3 and img_original.shape[2] == 1):
-            img_color = cv2.cvtColor(img_original, cv2.COLOR_GRAY2BGR)
-        else:
-            img_color = img_original.copy()
-
-        contours, _ = cv2.findContours(img_binaria, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        lista_objetos = []
-        id_actual = 1
-
-        for contour in contours:
-            area = cv2.contourArea(contour)
-            if area >= min_area:
-                perimetro = cv2.arcLength(contour, closed=True)
-                x, y, w, h = cv2.boundingRect(contour)
-
-                cv2.rectangle(img_color, (x, y), (x + w, y + h), (0, 255, 0), 2)
-
-                M = cv2.moments(contour)
-                cx, cy = (x + w // 2, y + h // 2)
-                if M['m00'] != 0:
-                    cx = int(M['m10'] / M['m00'])
-                    cy = int(M['m01'] / M['m00'])
-
-                cv2.putText(img_color, f"ID:{id_actual}", (cx - 30, cy - 15),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
-                cv2.putText(img_color, f"A:{int(area)}", (cx - 30, cy),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-                cv2.putText(img_color, f"P:{int(perimetro)}", (cx - 30, cy + 15),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
-
-                lista_objetos.append({
-                    'id': id_actual,
-                    'area': area,
-                    'perimetro': perimetro,
-                    'bbox': (x, y, w, h)
-                })
-
-                id_actual += 1
-
-        return img_color, lista_objetos
-
-    def aplicar_analisis_objetos(self):
-        if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
-            return
-
-        try:
-            imagen_binaria = self.imagen_display[self.indice_actual]
-            imagen_original = self.imagen_1 if self.indice_actual == 0 else self.imagen_2
-
-            imagen_resultado, datos = self.analizar_objetos(imagen_binaria, imagen_original, min_area=200)
-
-            self.imagen_display[self.indice_actual] = imagen_resultado
-            texto = f"📏 Análisis de Objetos\nSe detectaron {len(datos)} objetos\nImagen {self.indice_actual+1}"
-            self.mostrar_imagen(self.panel_objetos, imagen_resultado, texto)
-            self.tabview.set("🧊 Detección de objetos")
-
-        except Exception as e:
-            self.mostrar_mensaje(f"❌ Error al analizar objetos: {str(e)}")
-
     def crear_seccion_guardar(self):
         # Frame para guardar
         self.guardar_frame = ctk.CTkFrame(self.sidebar_frame)
@@ -380,9 +332,6 @@ class InterfazProcesadorImagenes(ctk.CTk):
 
         # Configurar cada pestaña como scrollable
         self.configurar_pestanas()
-
-
-
 
     def configurar_pestanas(self):
         # Configurar cada pestaña con scroll
@@ -1347,6 +1296,106 @@ class InterfazProcesadorImagenes(ctk.CTk):
                 self.tabview.set("✂️ Segmentación")
             else:
                 self.mostrar_mensaje(f"Error al aplicar vecindad 8 a la imagen {self.indice_actual+1}\nRecomendación: Utilizar una imagen binarizada")
+
+        except Exception as e:
+            self.mostrar_mensaje(f"❌ Error: {str(e)}")
+
+    def cargar_botones(self, botones_config):
+        """
+        Convierte la configuración de botones planos en funciones dinámicas.
+        """
+        botones_resultado = []
+
+        for texto, funcion_path, tab, panel, mensaje in botones_config:
+            partes = funcion_path.split(".")
+            modulo = ".".join(partes[:-1])
+            metodo = partes[-1]
+
+            funcion = getattr(getattr(self, modulo), metodo)
+
+            requiere_obj = "vecindad" in metodo.lower()
+
+            botones_resultado.append(
+                (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+            )
+
+        return botones_resultado
+
+    def cargar_subsecciones(self, subsecciones_config):
+        """
+        Convierte la configuración de subsecciones en botones dinámicos.
+        """
+        subsecciones_resultado = []
+
+        for sub_titulo, botones, color in subsecciones_config:
+            botones_convertidos = []
+            for texto, funcion_path, tab, panel, mensaje in botones:
+                partes = funcion_path.split(".")
+                modulo = ".".join(partes[:-1])
+                metodo = partes[-1]
+
+                funcion = getattr(getattr(self, modulo), metodo)
+
+                requiere_obj = "vecindad" in metodo.lower()
+
+                botones_convertidos.append(
+                    (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                    self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+                )
+
+            subsecciones_resultado.append((sub_titulo, botones_convertidos, color))
+
+        return subsecciones_resultado
+
+    def aplicar_funcion_generica(self, funcion, panel, titulo, tabview=None, actualizar=True, requiere_objetos=False):
+        """
+        Aplica cualquier función de procesamiento y muestra el resultado.
+
+        :param funcion: función a ejecutar (ej: self.ajustes_brillo.correccion_gamma)
+        :param panel: string con el nombre del panel (ej: "panel_segmentacion")
+        :param titulo: texto a mostrar en el título
+        :param tabview: pestaña a mostrar (ej: "🔧 Básico", "✂️ Segmentación")
+        :param actualizar: si debe actualizar la imagen en memoria
+        :param requiere_objetos: si la función devuelve (imagen, cantidad_objetos)
+        """
+        if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
+            return
+
+        try:
+            # convertir string a variable real
+            panel_obj = getattr(self, panel)
+
+            if requiere_objetos:
+                imagen_procesada, cantidad_objetos = funcion(img=self.imagen_display[self.indice_actual])
+                if imagen_procesada is not None:
+                    if actualizar:
+                        self.imagen_display[self.indice_actual] = imagen_procesada
+
+                    self.mostrar_imagen(
+                        panel_obj,
+                        imagen_procesada,
+                        f"{titulo}\n{cantidad_objetos} objetos detectados\nImagen {self.indice_actual + 1}"
+                    )
+                    if tabview:
+                        self.tabview.set(tabview)
+                else:
+                    self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
+            else:
+                imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
+                if imagen_procesada is not None:
+                    if actualizar:
+                        self.imagen_display[self.indice_actual] = imagen_procesada
+
+                    self.mostrar_imagen(
+                        panel_obj,
+                        imagen_procesada,
+                        f"{titulo}\nImagen {self.indice_actual + 1}"
+                    )
+                    if tabview:
+                        self.tabview.set(tabview)
+                else:
+                    self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
 
         except Exception as e:
             self.mostrar_mensaje(f"❌ Error: {str(e)}")
