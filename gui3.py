@@ -1,8 +1,3 @@
-# Importación de librerías
-import numpy as np
-import cv2
-
-# Importación de librerías visuales
 import matplotlib.pyplot as plt
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -10,6 +5,8 @@ from tkinter import filedialog, messagebox
 import os
 from PIL import Image, ImageTk
 
+from botones import botones_procesamiento, botones_ajustes_de_brillo, subsecciones_operaciones_aritmeticas_y_logicas, \
+    botones_filtros_pasa_altas
 # Importacion de librerías personales
 from librerias.OperacionesLogicas2 import *
 from librerias.Ruido import *
@@ -20,6 +17,9 @@ from librerias.AjustesDeBrillo import *
 from librerias.Umbralizacion import *
 from librerias.SliderWindow import *
 from librerias.VentanaDeDecision import *
+from librerias.Vision import *
+from librerias.SeccionDinamica import *
+import botones as btn
 
 
 # Configuración del tema y apariencia
@@ -36,11 +36,10 @@ class InterfazProcesadorImagenes(ctk.CTk):
         self.geometry("1200x1000+0+0")
         self.minsize(1200, 800)
 
-        # Configurar grid principal
+        # Configuracion grid principal
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
-        # Variables de instancia (comentadas - reemplaza con tus clases reales)
         self.procesador = ProcesadorImagen()
         self.operaciones_logicas = OperacionesLogicas2()
         self.ruido = Ruido()
@@ -48,6 +47,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
         self.ajustes_brillo = AjustesDeBrillo()
         self.filtros_pasa_altas = FiltrosPasaAltas()
         self.umbralizacion = Umbralizacion()
+        self.vision = Vision()
 
         self.imagen_1 = None
         self.imagen_2 = None
@@ -74,23 +74,80 @@ class InterfazProcesadorImagenes(ctk.CTk):
         )
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
+        botones_procesamiento = [(texto,getattr(self,comando)) for texto, comando in btn.botones_procesamiento]
+        botones_ajustes_de_brillo = [(texto,getattr(self,comando)) for texto, comando in btn.botones_ajustes_de_brillo]
+        subsecciones_operaciones_aritmeticas_y_logicas = [(sub, [(txt, getattr(self, comando)) for txt, comando in botones], color) for sub, botones, color in btn.subsecciones_operaciones_aritmeticas_y_logicas]
+        botones_ruido = [(texto,getattr(self,comando)) for texto, comando in btn.botones_ruido]
+        botones_filtros_pasa_bajas = [(texto,getattr(self,comando)) for texto, comando in btn.botones_filtros_pasa_altas]
+        botones_filtros_pasa_altas = [(texto,getattr(self,comando)) for texto, comando in btn.botones_filtros_pasa_bajas]
+        botones_segmentacion = [(texto,getattr(self,comando)) for texto, comando in btn.botones_segmentacion]
+
         # Sección de carga de imágenes
         self.crear_seccion_carga()
 
-        # Sección de procesamiento básico
-        self.crear_seccion_procesamiento()
+        seccion_procesamiento = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="⚙️ Procesamiento Básico",
+            botones=botones_procesamiento,
+            default_color="#9A721D",
+            hover_color="#000000"
+        )
+        seccion_procesamiento.grid(row=2, column=0, padx=20, pady=(20, 10))
 
-        # Sección de ajustes de brillo
-        self.crear_seccion_ajustes_de_brillo()
+        seccion_ajustes_de_brillo = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="🔦 Ajustes de brillo",
+            botones=botones_ajustes_de_brillo,
+            default_color="#445725",
+            hover_color="#000000"
+        )
+        seccion_ajustes_de_brillo.grid(row=3, column=0, padx=20, pady=(20, 10))
 
-        # Sección de operaciones lógicas
-        self.crear_seccion_logicas()
+        seccion_operaciones = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="🔗 Operaciones",
+            subsecciones=subsecciones_operaciones_aritmeticas_y_logicas
+        )
+        seccion_operaciones.grid(row=4, column=0, padx=20, pady=(20, 10))
 
-        # Sección de ruido y filtros
-        self.crear_seccion_ruido()
+        seccion_ruido = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="🔊 Ruido",
+            botones=botones_ruido,
+            default_color="#001A61",
+            hover_color="#000000"
+        )
+        seccion_ruido.grid(row=5, column=0, padx=20, pady=(20, 10))
 
-        # Sección de segmentación
-        self.crear_seccion_segmentacion()
+        seccion_filtros_pasa_bajas = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="Filtros pasa_baja",
+            botones=botones_filtros_pasa_bajas,
+            default_color="#0A4B43",
+            hover_color="#000000"
+        )
+        seccion_filtros_pasa_bajas.grid(row=6, column=0, padx=20, pady=(20, 10))
+
+        seccion_filtros_pasa_altas = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="Filtros pasa_altas",
+            botones=botones_filtros_pasa_altas,
+            default_color="#0A4B43",
+            hover_color="#000000"
+        )
+        seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
+
+        seccion_segmentacion = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="✂️ Segmentación",
+            botones=botones_segmentacion,
+            default_color="#631D29",
+            hover_color="#000000"
+        )
+        seccion_segmentacion.grid(row=8, column=0, padx=20, pady=(20, 10))
+
+
+        #self.crear_seccion_vision()
 
         # Botón de guardar
         self.crear_seccion_guardar()
@@ -187,212 +244,6 @@ class InterfazProcesadorImagenes(ctk.CTk):
             )
             btn.grid(row=i + len(botones_carga_imagen1) + 6, column=0, padx=20, pady=3, sticky="ew")
 
-    def crear_seccion_procesamiento(self):
-        # Frame para procesamiento básico
-        self.procesamiento_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.procesamiento_frame.grid(row=2, column=0, padx=(20, 20), pady=10, sticky="ew")
-
-        # Título de la sección
-        self.procesamiento_label = ctk.CTkLabel(
-            self.procesamiento_frame,
-            text="⚙️ Procesamiento Básico",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.procesamiento_label.grid(row=0, column=0, padx=20, pady=(15, 10))
-
-        # Botones de procesamiento
-        botones_procesamiento = [
-            ("🔳 Escala de Grises", self.convertir_a_grises),
-            ("📊 Binarizar", self.aplicar_umbral),
-            ("📊 Calcular Histogramas", self.calcular_histogramas)
-        ]
-
-        for i, (texto, comando) in enumerate(botones_procesamiento):
-            btn = ctk.CTkButton(
-                self.procesamiento_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                fg_color="#9A721D",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + 1, column=0, padx=20, pady=3, sticky="ew")
-
-        # Espaciado final
-        ctk.CTkLabel(self.procesamiento_frame, text="").grid(row=len(botones_procesamiento) + 1, column=0, pady=(0, 15))
-
-    def crear_seccion_ajustes_de_brillo(self):
-        # Frame para procesamiento básico
-        self.ajustes_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.ajustes_frame.grid(row=3, column=0, padx=(20, 20), pady=10, sticky="ew")
-
-        # Título de la sección
-        self.ajustes_label = ctk.CTkLabel(
-            self.ajustes_frame,
-            text="🔦 Ajustes de brillo",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.ajustes_label.grid(row=0, column=0, padx=20, pady=(15, 10))
-
-        # Botones de procesamiento
-        botones_ajustes = [
-            ("🔳 Ecualización estandar", self.aplicar_ecualizacion_estandar),
-            ("📈 Ecualización Hipercúbica", self.ecualizacion_hipercubica),
-            ("📊 Corrección Gamma", self.aplicar_correccion_gamma),
-            ("📈 Expansión lineal de contraste", self.aplicar_expansion_lineal),
-            ("📊 Transformación exponencial", self.aplicar_transformacion_exponencial),
-            ("📈 Ecualización adaptativa",self.aplicar_ecualizacion_adaptativa),
-            ("📈 Transformación rayleigh",self.aplicar_transformacion_rayleigh)
-        ]
-
-        for i, (texto, comando) in enumerate(botones_ajustes):
-            btn = ctk.CTkButton(
-                self.ajustes_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                fg_color="#445725",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + 1, column=0, padx=20, pady=3, sticky="ew")
-
-        # Espaciado final
-        ctk.CTkLabel(self.ajustes_frame, text="").grid(row=len(botones_ajustes) + 1, column=0, pady=(0, 15))
-    
-    def crear_seccion_logicas(self):
-        # Frame para operaciones lógicas
-        self.logicas_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.logicas_frame.grid(row=4, column=0, padx=(20, 20), pady=10, sticky="ew")
-
-        # Título de la sección
-        self.logicas_label = ctk.CTkLabel(
-            self.logicas_frame,
-            text="🔗 Operaciones Lógicas y\n aritmeticas",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.logicas_label.grid(row=0, column=0, padx=20, pady=(15, 10))
-
-        # Botón de operaciones lógicas
-        botones_logicas = [
-            ("🔳 Suma", self.aplicar_suma_gui),
-            ("📊 Resta", self.aplicar_resta_gui),
-            ("🧮 Multiplicación", self.aplicar_multiplicacion_gui),
-            ("🔳 AND", self.aplicar_and_gui),
-            ("📊 OR", self.aplicar_or_gui),
-            ("🧮 XOR", self.aplicar_xor_gui),
-            ("🧮 NOT", self.aplicar_not_gui)
-        ]
-
-        for i, (texto, comando) in enumerate(botones_logicas):
-            btn = ctk.CTkButton(
-                self.logicas_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                fg_color="#11500C",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + 1, column=0, padx=20, pady=3, sticky="ew")
-
-    def crear_seccion_ruido(self):
-        # Frame para ruido y filtros
-        self.ruido_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.ruido_frame.grid(row=5, column=0, padx=(20, 20), pady=10, sticky="ew")
-
-        # Título de la sección
-        self.ruido_label = ctk.CTkLabel(
-            self.ruido_frame,
-            text="🔊 Ruido y Filtros",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.ruido_label.grid(row=0, column=0, padx=20, pady=(15, 10))
-
-        # Subsección de ruido
-        self.ruido_sub_label = ctk.CTkLabel(
-            self.ruido_frame,
-            text="Agregar Ruido:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.ruido_sub_label.grid(row=1, column=0, padx=20, pady=(5, 5))
-
-        ruido_botones = [
-            ("🧂 Sal y Pimienta", self.agregar_ruido_sal_pimienta),
-            ("📡 Gaussiano", self.agregar_ruido_gaussiano)
-        ]
-
-        for i, (texto, comando) in enumerate(ruido_botones):
-            btn = ctk.CTkButton(
-                self.ruido_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                fg_color="#001A61",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + 2, column=0, padx=20, pady=3, sticky="ew")
-
-        # Subsección de filtros
-        self.filtros_sub_label = ctk.CTkLabel(
-            self.ruido_frame,
-            text="Aplicar Filtros Pasa-bajas:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.filtros_sub_label.grid(row=len(ruido_botones) + 2, column=0, padx=20, pady=(10, 5))
-
-        filtros_botones_pb = [
-            ("📈 Promediador", self.aplicar_filtro_promediador),
-            ("📈 Pesado", self.aplicar_filtro_pesado),
-            ("📈 Mediana", self.aplicar_filtro_mediana),
-            ("📈 Moda", self.aplicar_filtro_Moda),
-            ("📈 Bilateral",self.aplicar_filtro_bilateral),
-            ("📈 Max",self.aplicar_filtro_max),
-            ("📈 Min",self.aplicar_filtro_min),
-            ("📈 Gaussiano", self.aplicar_filtro_gaussiano)
-        ]
-
-        for i, (texto, comando) in enumerate(filtros_botones_pb):
-            btn = ctk.CTkButton(
-                self.ruido_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                fg_color= "#0A4B43",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + len(ruido_botones) + 3, column=0, padx=20, pady=3, sticky="ew")
-
-        self.filtros_sub_label = ctk.CTkLabel(
-            self.ruido_frame,
-            text="Aplicar Filtros Pasa-altas:",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.filtros_sub_label.grid(row=i + len(ruido_botones) + 4, column=0, padx=20, pady=(10, 5))
-
-        filtros_botones_pa = [
-            ("📈 Robinson", self.aplicar_filtro_Robinson),
-            ("📈 Robert", self.aplicar_filtro_Robert),
-            ("📈 Prewitt", self.aplicar_filtro_Prewitt),
-            ("📈 Sobel", self.aplicar_filtro_Sobel),
-            ("📈 Kirsch",self.aplicar_filtro_Kirch),
-            ("📈 Canny",self.aplicar_filtro_Canny),
-            ("📈 Op. Laplaciano",self.aplicar_Operador_Laplaciano)
-        ]
-
-        for i, (texto, comando) in enumerate(filtros_botones_pa):
-            btn = ctk.CTkButton(
-                self.ruido_frame,
-                text=texto,
-                command=comando,
-                height=30,
-                    fg_color="#29164A",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + len(ruido_botones) + len(filtros_botones_pb) + 5, column=0, padx=20, pady=3, sticky="ew")
-
-        # Espaciado final
-        ctk.CTkLabel(self.ruido_frame, text="").grid(row=len(ruido_botones) + len(filtros_botones_pb) + 
-                                                     len(filtros_botones_pa) + 5, column=0, pady=(0, 15))
-
     def analizar_objetos(self, img_binaria, img_original, min_area=200):
         if len(img_original.shape) == 2 or (len(img_original.shape) == 3 and img_original.shape[2] == 1):
             img_color = cv2.cvtColor(img_original, cv2.COLOR_GRAY2BGR)
@@ -454,51 +305,10 @@ class InterfazProcesadorImagenes(ctk.CTk):
         except Exception as e:
             self.mostrar_mensaje(f"❌ Error al analizar objetos: {str(e)}")
 
-    def crear_seccion_segmentacion(self):
-        # Frame para segmentación
-        self.segmentacion_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.segmentacion_frame.grid(row=6, column=0, padx=(20, 20), pady=10, sticky="ew")
-
-        # Título de la sección
-        self.segmentacion_label = ctk.CTkLabel(
-            self.segmentacion_frame,
-            text="✂️ Segmentación",
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.segmentacion_label.grid(row=0, column=0, padx=20, pady=(15, 10))
-
-        # Botones de segmentación
-        segmentacion_botones = [
-            ("🎯 Umbral Media", self.aplicar_umbral_media),
-            ("🎯 Método de Otsu", self.aplicar_filtro_otsu),
-            ("🎯 Multiumbralización", self.aplicar_multiubralizacion),
-            ("🎯 Entropía Kapur", self.aplicar_entropia_kapur),
-            ("🎯 Umbral por banda", self.aplicar_umbral_banda),
-            ("🎯 Umbral adaptativo", self.aplicar_umbral_adaptativo),
-            ("🎯 Minimo del histograma", self.aplicar_minimo_en_el_histograma),
-            ("🎯 Vecindad 4", self.aplicar_vecindad_4),
-            ("🎯 Vecindad 8", self.aplicar_vecindad_8),
-            ("📏 Análisis de Objetos", self.aplicar_analisis_objetos)
-        ]
-
-        for i, (texto, comando) in enumerate(segmentacion_botones):
-            btn = ctk.CTkButton(
-                self.segmentacion_frame,
-                text=texto,
-                command=comando,
-                height=35,
-                fg_color="#631D29",
-                hover_color="#000000"
-            )
-            btn.grid(row=i + 1, column=0, padx=20, pady=5, sticky="ew")
-
-        # Espaciado final
-        ctk.CTkLabel(self.segmentacion_frame, text="").grid(row=len(segmentacion_botones) + 1, column=0, pady=(0, 15))
-
     def crear_seccion_guardar(self):
         # Frame para guardar
         self.guardar_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.guardar_frame.grid(row=7, column=0, padx=(20, 20), pady=10, sticky="ew")
+        self.guardar_frame.grid(row=9, column=0, padx=(20, 20), pady=10, sticky="ew")
 
         # Título de la sección
         self.guardar_label = ctk.CTkLabel(
@@ -608,7 +418,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
     def crear_selector_tema(self):
         # Frame para selector de tema
         self.tema_frame = ctk.CTkFrame(self.sidebar_frame)
-        self.tema_frame.grid(row=8, column=0, padx=(20, 20), pady=10, sticky="ew")
+        self.tema_frame.grid(row=10, column=0, padx=(20, 20), pady=10, sticky="ew")
 
         # Título
         self.tema_label = ctk.CTkLabel(

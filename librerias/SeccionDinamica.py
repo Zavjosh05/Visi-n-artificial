@@ -1,0 +1,62 @@
+import customtkinter as ctk
+
+class SeccionDinamica(ctk.CTkFrame):
+    def __init__(self, master, titulo="Sección",
+                 botones=None, subsecciones=None,
+                 font_size=16, boton_height=30,
+                 default_color="#229954", hover_color="#000000",
+                 *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+
+        # Título de la sección principal
+        self.titulo_label = ctk.CTkLabel(
+            self,
+            text=titulo,
+            font=ctk.CTkFont(size=font_size, weight="bold")
+        )
+        self.titulo_label.grid(row=0, column=0, padx=20, pady=(15, 10))
+
+        fila_actual = 1
+
+        # === Botones directos (sin subsección) ===
+        if botones:
+            for texto, comando in botones:
+                btn = ctk.CTkButton(
+                    self,
+                    text=texto,
+                    command=comando,
+                    height=boton_height,
+                    fg_color=default_color,
+                    hover_color=hover_color
+                )
+                btn.grid(row=fila_actual, column=0, padx=20, pady=5, sticky="ew")
+                fila_actual += 1
+
+        # === Subsecciones ===
+        if subsecciones:
+            for sub_titulo, botones_sub, color in subsecciones:
+                # Subtítulo
+                if sub_titulo:  # opcional
+                    sub_label = ctk.CTkLabel(
+                        self,
+                        text=sub_titulo,
+                        font=ctk.CTkFont(size=font_size, weight="bold")
+                    )
+                    sub_label.grid(row=fila_actual, column=0, padx=20, pady=(10, 5))
+                    fila_actual += 1
+
+                # Botones de la subsección
+                for texto, comando in botones_sub:
+                    btn = ctk.CTkButton(
+                        self,
+                        text=texto,
+                        command=comando,
+                        height=boton_height,
+                        fg_color=color if color else default_color,
+                        hover_color=hover_color
+                    )
+                    btn.grid(row=fila_actual, column=0, padx=20, pady=3, sticky="ew")
+                    fila_actual += 1
+
+        # Espaciado final
+        ctk.CTkLabel(self, text="").grid(row=fila_actual, column=0, pady=(0, 15))
