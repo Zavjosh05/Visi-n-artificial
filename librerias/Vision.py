@@ -25,7 +25,7 @@ class Vision:
 
         return img
 
-    def sobel_artesanal(self, img):
+    def sobel(self, img):
 
         if len(img.shape) == 3:
             img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
