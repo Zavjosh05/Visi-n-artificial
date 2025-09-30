@@ -24,7 +24,8 @@ class Vision:
         edges = np.zeros_like(img, dtype=np.uint8)
         for mask in kirsch_masks:
             filtered = self.convolucion_manual(img,mask)
-            abs_filtered = cv.convertScaleAbs(filtered)
+            abs_filtered = self.convert_scale_abs_manual(filtered)
+            # abs_filtered = cv.convertScaleAbs(filtered)
             #abs_filtered = self.normalizar_manual(filtered)
             edges = np.maximum(edges, abs_filtered)
 
@@ -85,6 +86,16 @@ class Vision:
                 output[i, j] = np.sum(region * kernel)
 
         return output
+
+    def convert_scale_abs_manual(self,img, alpha=1.0, beta=0.0):
+        """
+        Implementacion artesanal de ScaleAbs pq da cosas diferentes Kirsch con normalizar_manual
+        """
+        scaled = img.astype(np.float32) * alpha + beta
+        abs_scaled = np.abs(scaled)
+        abs_scaled = np.clip(abs_scaled, 0, 255)
+
+        return abs_scaled.astype(np.uint8)
 
     def normalizar_manual(self, img):
         """
