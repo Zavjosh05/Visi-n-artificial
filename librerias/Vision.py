@@ -18,10 +18,14 @@ class Vision:
             np.array([[-3, 5, 5], [-3, 0, 5], [-3, -3, -3]])  # Noroeste
         ]
 
+        if not (len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] == 1)):
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
         edges = np.zeros_like(img, dtype=np.uint8)
         for mask in kirsch_masks:
-            filtered = cv.filter2D(img, cv.CV_16S, mask)
+            filtered = self.convolucion_manual(img,mask)
             abs_filtered = cv.convertScaleAbs(filtered)
+            #abs_filtered = self.normalizar_manual(filtered)
             edges = np.maximum(edges, abs_filtered)
 
         return edges

@@ -99,50 +99,50 @@ class InterfazProcesadorImagenes(ctk.CTk):
             default_color="#9A721D",
             hover_color="#000000"
         )
-        seccion_procesamiento.grid(row=2, column=0, padx=20, pady=(20, 10))
+        seccion_procesamiento.grid(row=2, column=0, padx=20, pady=(10, 5))
 
-        seccion_ajustes_de_brillo = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔦 Ajustes de brillo",
-            botones=botones_ajustes_de_brillo,
-            default_color="#445725",
-            hover_color="#000000"
-        )
-        seccion_ajustes_de_brillo.grid(row=3, column=0, padx=20, pady=(20, 10))
+        # seccion_ajustes_de_brillo = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔦 Ajustes de brillo",
+        #     botones=botones_ajustes_de_brillo,
+        #     default_color="#445725",
+        #     hover_color="#000000"
+        # )
+        # seccion_ajustes_de_brillo.grid(row=3, column=0, padx=20, pady=(20, 10))
 
-        seccion_operaciones = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔗 Operaciones",
-            subsecciones=subsecciones_operaciones_aritmeticas_y_logicas
-        )
-        seccion_operaciones.grid(row=4, column=0, padx=20, pady=(20, 10))
+        # seccion_operaciones = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔗 Operaciones",
+        #     subsecciones=subsecciones_operaciones_aritmeticas_y_logicas
+        # )
+        # seccion_operaciones.grid(row=4, column=0, padx=20, pady=(20, 10))
 
-        seccion_ruido = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔊 Ruido",
-            botones=botones_ruido,
-            default_color="#001A61",
-            hover_color="#000000"
-        )
-        seccion_ruido.grid(row=5, column=0, padx=20, pady=(20, 10))
+        # seccion_ruido = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔊 Ruido",
+        #     botones=botones_ruido,
+        #     default_color="#001A61",
+        #     hover_color="#000000"
+        # )
+        # seccion_ruido.grid(row=5, column=0, padx=20, pady=(20, 10))
 
-        seccion_filtros_pasa_bajas = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="Filtros pasa_baja",
-            botones=botones_filtros_pasa_bajas,
-            default_color="#0A4B43",
-            hover_color="#000000"
-        )
-        seccion_filtros_pasa_bajas.grid(row=6, column=0, padx=20, pady=(20, 10))
+        # seccion_filtros_pasa_bajas = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="Filtros pasa_baja",
+        #     botones=botones_filtros_pasa_bajas,
+        #     default_color="#0A4B43",
+        #     hover_color="#000000"
+        # )
+        # seccion_filtros_pasa_bajas.grid(row=6, column=0, padx=20, pady=(20, 10))
 
-        seccion_filtros_pasa_altas = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="Filtros pasa_altas",
-            botones=botones_filtros_pasa_altas,
-            default_color="#0A4B43",
-            hover_color="#000000"
-        )
-        seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
+        # seccion_filtros_pasa_altas = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="Filtros pasa_altas",
+        #     botones=botones_filtros_pasa_altas,
+        #     default_color="#0A4B43",
+        #     hover_color="#000000"
+        # )
+        # seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
 
         seccion_vision = SeccionDinamica(
             master=self.sidebar_frame,
@@ -151,7 +151,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             default_color="#0A4B43",
             hover_color="#000000",
         )
-        seccion_vision.grid(row=8, column=0, padx=20, pady=(10, 10))
+        seccion_vision.grid(row=3, column=0, padx=20, pady=(10, 10))
 
         #seccion_segmentacion = SeccionDinamica(
         #     master=self.sidebar_frame,
@@ -1300,10 +1300,16 @@ class InterfazProcesadorImagenes(ctk.CTk):
         except Exception as e:
             self.mostrar_mensaje(f"❌ Error: {str(e)}")
 
+    def wrap_funcion(self, funcion):
+        def wrapper(*args, **kwargs):
+            resultado = funcion(*args, **kwargs)
+            if isinstance(resultado, tuple):
+                return resultado[0]
+            return resultado
+
+        return wrapper
+
     def cargar_botones(self, botones_config):
-        """
-        Convierte la configuración de botones planos en funciones dinámicas.
-        """
         botones_resultado = []
 
         for texto, funcion_path, tab, panel, mensaje in botones_config:
