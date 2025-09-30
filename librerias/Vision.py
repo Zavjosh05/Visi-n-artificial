@@ -50,8 +50,6 @@ class Vision:
 
         magnitude = self.normalizar_manual(magnitude)
 
-        magnitude = magnitude.astype(np.uint8)
-
         return magnitude
 
     def convolucion_manual(self, img, kernel):
@@ -90,4 +88,56 @@ class Vision:
 
         img_normalized = 255 * (img - img_min) / (img_max - img_min)
 
-        return img_normalized
+        return img_normalized.astype(np.uint8)
+
+    def roberts(self, img):
+        if len(img.shape) == 3:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        else:
+            img = img.copy()
+
+        kx = np.array([[1, 0], [0, -1]])
+        ky = np.array([[0, 1], [-1, 0]])
+
+        gx = self.convolucion_manual(img, kx)
+        gy = self.convolucion_manual(img, ky)
+
+        G = np.sqrt((gx ** 2) + (gy ** 2))
+
+        roberts = self.normalizar_manual(G)
+
+        return roberts
+
+
+
+    def freichen(self, img):
+        if len(img.shape) == 3:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        else:
+            img = img.copy()
+
+        f1 = np.array([[1, np.sqrt(2), 1], [0, 0, 0], [-1, -np.sqrt(2), -1]], dtype=np.float32) / (2 * np.sqrt(2))
+        f2 = np.array([[1, 0, -1], [np.sqrt(2), 0, -np.sqrt(2)], [1, 0, -1]], dtype=np.float32) / (2 * np.sqrt(2))
+        f3 = np.array([[0, -1, np.sqrt(2)], [1, 0, -1], [np.sqrt(2), 1, 0]], dtype=np.float32) / (2 * np.sqrt(2))
+        f4 = np.array([[np.sqrt(2), -1, 0], [-1, 0, 1], [0, 1, -np.sqrt(2)]], dtype=np.float32) / (2 * np.sqrt(2))
+        f5 = np.array([[0, 1, 0], [-1, 0, -1], [0, 1, 0]], dtype=np.float32) / 2
+        f6 = np.array([[-1, 0, 1], [0, 0, 0], [1, 0, -1]], dtype=np.float32) / 2
+        f7 = np.array([[1, -2, 1], [-2, 4, -2], [1, -2, 1]], dtype=np.float32) / 6
+        f8 = np.array([[-2, 1, -2], [1, 4, 1], [-2, 1, -2]], dtype=np.float32) / 6
+        f9 = np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]], dtype=np.float32) / 3
+
+        mascaras = [f1, f2, f3, f4, f5, f6, f7, f8, f9]
+
+        resultados = [self.convolucion_manual(img,mascara) for mascara in mascaras]
+
+        energias = [resultado ** 2 for resultado in resultados]
+
+        energia = sum(energias)
+
+        bordenergia = sum(energias[:4])
+
+        angulo = np.sqrt((bordenergia) / energia + 0.000001)
+
+        angulo = self.normalizar_manual(angulo)
+
+        return angulo
