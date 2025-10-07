@@ -1,0 +1,20 @@
+Hola, estas son las instrucciones para que hagan su venv en su compu
+pq, los venv son locales y así, y pues, no se deben de subir al github
+
+Crear un venv:
+
+python -m venv nombreDelVenv
+Normalmente al venv se le llama ".venv"
+
+Comando para activar el venv:
+
+nombreDelVenv/Scripts/activate
+
+Comando para importar las librerias indicadas en requirements.txt
+(haganlo dentro de su venv):
+
+pip install -r requirements.txt
+
+Comando para crear un archivo requirements.txt:
+
+pip freeze > requirements.txt
