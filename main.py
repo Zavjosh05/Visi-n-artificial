@@ -1310,44 +1310,74 @@ class InterfazProcesadorImagenes(ctk.CTk):
         return wrapper
 
     def cargar_botones(self, botones_config):
+        """
+        Convierte la configuración de botones planos en funciones dinámicas.
+        Aplica el wrapper para manejar funciones que devuelven tuplas.
+        Soporta rutas largas y paneles pasados como string.
+        """
         botones_resultado = []
 
         for texto, funcion_path, tab, panel, mensaje in botones_config:
             partes = funcion_path.split(".")
-            modulo = ".".join(partes[:-1])
             metodo = partes[-1]
+            ruta_modulos = partes[:-1]
 
-            funcion = getattr(getattr(self, modulo), metodo)
+            # Resolver la ruta completa dentro de self
+            try:
+                obj = functools.reduce(lambda o, attr: getattr(o, attr), ruta_modulos, self)
+                funcion = getattr(obj, metodo)
+            except AttributeError as e:
+                print(f"❌ No se pudo resolver '{funcion_path}' -> {e}")
+                continue
+
+            # Envolver la función para limpiar el retorno
+            funcion_envuelta = self.wrap_funcion(funcion)
 
             requiere_obj = "vecindad" in metodo.lower()
 
             botones_resultado.append(
-                (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
-                self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+                (
+                    texto,
+                    lambda f=funcion_envuelta, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                    self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r)
+                )
             )
 
         return botones_resultado
 
     def cargar_subsecciones(self, subsecciones_config):
         """
-        Convierte la configuración de subsecciones en botones dinámicos.
+        Convierte la configuración de subsecciones (con varios grupos de botones)
+        en estructuras listas para usar con SeccionDinamica.
+        Aplica el wrapper automáticamente a las funciones.
         """
         subsecciones_resultado = []
 
         for sub_titulo, botones, color in subsecciones_config:
             botones_convertidos = []
+
             for texto, funcion_path, tab, panel, mensaje in botones:
                 partes = funcion_path.split(".")
-                modulo = ".".join(partes[:-1])
                 metodo = partes[-1]
+                ruta_modulos = partes[:-1]
 
-                funcion = getattr(getattr(self, modulo), metodo)
+                try:
+                    obj = functools.reduce(lambda o, attr: getattr(o, attr), ruta_modulos, self)
+                    funcion = getattr(obj, metodo)
+                except AttributeError as e:
+                    print(f"❌ No se pudo resolver '{funcion_path}' -> {e}")
+                    continue
 
+                # Aplicar wrapper
+                funcion_envuelta = self.wrap_funcion(funcion)
                 requiere_obj = "vecindad" in metodo.lower()
 
                 botones_convertidos.append(
-                    (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
-                    self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+                    (
+                        texto,
+                        lambda f=funcion_envuelta, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                        self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r)
+                    )
                 )
 
             subsecciones_resultado.append((sub_titulo, botones_convertidos, color))

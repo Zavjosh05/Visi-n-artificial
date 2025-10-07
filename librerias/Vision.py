@@ -55,7 +55,6 @@ class Vision:
         angulo = np.arctan2(grad_y, grad_x) * 180 / np.pi
 
         magnitude = np.sqrt(np.square(grad_x) + np.square(grad_y))
-
         magnitude = self.normalizar_manual(magnitude)
 
         return magnitude, angulo
