@@ -1388,10 +1388,10 @@ class InterfazProcesadorImagenes(ctk.CTk):
         """
         Aplica cualquier función de procesamiento y muestra el resultado.
 
-        :param funcion: función a ejecutar (ej: self.ajustes_brillo.correccion_gamma)
-        :param panel: string con el nombre del panel (ej: "panel_segmentacion")
+        :param funcion: función a ejecutar (ej: self.vision.harris)
+        :param panel: string con el nombre del panel (ej: "panel_objetos")
         :param titulo: texto a mostrar en el título
-        :param tabview: pestaña a mostrar (ej: "🔧 Básico", "✂️ Segmentación")
+        :param tabview: pestaña a mostrar (ej: "Detección de objetos")
         :param actualizar: si debe actualizar la imagen en memoria
         :param requiere_objetos: si la función devuelve (imagen, cantidad_objetos)
         """
@@ -1399,10 +1399,25 @@ class InterfazProcesadorImagenes(ctk.CTk):
             return
 
         try:
-            # convertir string a variable real
+
             panel_obj = getattr(self, panel)
 
-            if requiere_objetos:
+            # Caso especial para Harris no actualizar la imagen original
+            if "harris" in funcion.__name__.lower():
+                imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
+                if imagen_procesada is not None:
+
+                    self.mostrar_imagen(
+                        panel_obj,
+                        imagen_procesada,
+                        f"{titulo}\nImagen {self.indice_actual + 1}"
+                    )
+                    if tabview:
+                        self.tabview.set(tabview)
+                else:
+                    self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
+
+            elif requiere_objetos:
                 imagen_procesada, cantidad_objetos = funcion(img=self.imagen_display[self.indice_actual])
                 if imagen_procesada is not None:
                     if actualizar:
@@ -1417,6 +1432,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
                         self.tabview.set(tabview)
                 else:
                     self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
+
             else:
                 imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
                 if imagen_procesada is not None:

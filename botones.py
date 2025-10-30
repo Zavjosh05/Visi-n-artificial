@@ -82,4 +82,5 @@ botones_vision = [
     ("Método de Frei-chen","vision.freichen","✂️ Segmentación","panel_segmentacion","Método de Frei-chen"),
     ("Canny","vision.canny","✂️ Segmentación","panel_segmentacion","Canny"),
     ("Prewitt","vision.prewit","✂️ Segmentación","panel_segmentacion","Prewitt"),
+    ("Harris", "vision.harris", "🧊 Detección de objetos", "panel_objetos", "Detector de esquinas Harris"),
 ]

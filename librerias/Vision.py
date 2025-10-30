@@ -261,3 +261,81 @@ class Vision:
                         resultado[i][j] = 0
 
         return resultado
+
+    def harris(self, img, k=0.04, umbral_rel=0.01, tam_ventana=3):
+        """
+        Implementación mejorada del detector de esquinas de Harris.
+        k: parámetro empírico (entre 0.04 y 0.06)
+        umbral_rel: umbral relativo respecto al valor máximo de respuesta
+        tam_ventana: tamaño de la ventana gaussiana (3x3 o 5x5)
+        """
+
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        img_gray = img_gray.astype(np.float32)
+
+        # Calcular gradientes usando sobel existente
+        magnitud, angulo = self.sobel(img_gray)
+
+        magnitud = magnitud.astype(np.float32)
+
+        Ix = magnitud * np.cos(angulo * np.pi / 180.0)
+        Iy = magnitud * np.sin(angulo * np.pi / 180.0)
+
+        Ixx = Ix ** 2
+        Iyy = Iy ** 2
+        Ixy = Ix * Iy
+
+        if tam_ventana == 3:
+            kernel_gauss = np.array([[1, 2, 1],
+                                     [2, 4, 2],
+                                     [1, 2, 1]], dtype=np.float32)
+        else:
+            kernel_gauss = np.array([[1, 4, 6, 4, 1],
+                                     [4, 16, 24, 16, 4],
+                                     [6, 24, 36, 24, 6],
+                                     [4, 16, 24, 16, 4],
+                                     [1, 4, 6, 4, 1]], dtype=np.float32)
+
+        kernel_gauss /= np.sum(kernel_gauss)
+
+        Sxx = self.convolucion_manual(Ixx, kernel_gauss)
+        Syy = self.convolucion_manual(Iyy, kernel_gauss)
+        Sxy = self.convolucion_manual(Ixy, kernel_gauss)
+
+        detM = (Sxx * Syy) - (Sxy ** 2)
+        traceM = Sxx + Syy
+        R = detM - k * (traceM ** 2)
+
+        R_suprimido = self.supresion_no_maxima_harris(R, tam_vecindario=3)
+
+        R_norm = self.normalizar_manual(R_suprimido)
+
+        umbral = umbral_rel * np.max(R_norm)
+        esquinas = np.zeros_like(R_norm, dtype=np.uint8)
+        esquinas[R_norm > umbral] = 255
+
+        return esquinas
+
+    def supresion_no_maxima_harris(self, R, tam_vecindario=3):
+        """
+        Supresión no máxima para refinar la detección de esquinas Harris.
+        Conserva solo los máximos locales en una vecindad.
+        """
+        pad = tam_vecindario // 2
+        R_padded = np.pad(R, pad, mode='constant', constant_values=0)
+        R_suprimido = np.zeros_like(R)
+
+        for i in range(R.shape[0]):
+            for j in range(R.shape[1]):
+                # Extraer vecindario
+                vecindario = R_padded[i:i + tam_vecindario, j:j + tam_vecindario]
+                centro = vecindario[pad, pad]
+
+                if centro == np.max(vecindario) and centro > 0:
+                    R_suprimido[i, j] = centro
+
+        return R_suprimido
