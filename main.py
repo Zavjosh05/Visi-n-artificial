@@ -99,50 +99,50 @@ class InterfazProcesadorImagenes(ctk.CTk):
             default_color="#9A721D",
             hover_color="#000000"
         )
-        seccion_procesamiento.grid(row=2, column=0, padx=20, pady=(20, 10))
+        seccion_procesamiento.grid(row=2, column=0, padx=20, pady=(10, 5))
 
-        seccion_ajustes_de_brillo = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔦 Ajustes de brillo",
-            botones=botones_ajustes_de_brillo,
-            default_color="#445725",
-            hover_color="#000000"
-        )
-        seccion_ajustes_de_brillo.grid(row=3, column=0, padx=20, pady=(20, 10))
+        # seccion_ajustes_de_brillo = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔦 Ajustes de brillo",
+        #     botones=botones_ajustes_de_brillo,
+        #     default_color="#445725",
+        #     hover_color="#000000"
+        # )
+        # seccion_ajustes_de_brillo.grid(row=3, column=0, padx=20, pady=(20, 10))
 
-        seccion_operaciones = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔗 Operaciones",
-            subsecciones=subsecciones_operaciones_aritmeticas_y_logicas
-        )
-        seccion_operaciones.grid(row=4, column=0, padx=20, pady=(20, 10))
+        # seccion_operaciones = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔗 Operaciones",
+        #     subsecciones=subsecciones_operaciones_aritmeticas_y_logicas
+        # )
+        # seccion_operaciones.grid(row=4, column=0, padx=20, pady=(20, 10))
 
-        seccion_ruido = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="🔊 Ruido",
-            botones=botones_ruido,
-            default_color="#001A61",
-            hover_color="#000000"
-        )
-        seccion_ruido.grid(row=5, column=0, padx=20, pady=(20, 10))
+        # seccion_ruido = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="🔊 Ruido",
+        #     botones=botones_ruido,
+        #     default_color="#001A61",
+        #     hover_color="#000000"
+        # )
+        # seccion_ruido.grid(row=5, column=0, padx=20, pady=(20, 10))
 
-        seccion_filtros_pasa_bajas = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="Filtros pasa_baja",
-            botones=botones_filtros_pasa_bajas,
-            default_color="#0A4B43",
-            hover_color="#000000"
-        )
-        seccion_filtros_pasa_bajas.grid(row=6, column=0, padx=20, pady=(20, 10))
+        # seccion_filtros_pasa_bajas = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="Filtros pasa_baja",
+        #     botones=botones_filtros_pasa_bajas,
+        #     default_color="#0A4B43",
+        #     hover_color="#000000"
+        # )
+        # seccion_filtros_pasa_bajas.grid(row=6, column=0, padx=20, pady=(20, 10))
 
-        seccion_filtros_pasa_altas = SeccionDinamica(
-            master=self.sidebar_frame,
-            titulo="Filtros pasa_altas",
-            botones=botones_filtros_pasa_altas,
-            default_color="#0A4B43",
-            hover_color="#000000"
-        )
-        seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
+        # seccion_filtros_pasa_altas = SeccionDinamica(
+        #     master=self.sidebar_frame,
+        #     titulo="Filtros pasa_altas",
+        #     botones=botones_filtros_pasa_altas,
+        #     default_color="#0A4B43",
+        #     hover_color="#000000"
+        # )
+        # seccion_filtros_pasa_altas.grid(row=7, column=0, padx=20, pady=(20, 10))
 
         seccion_vision = SeccionDinamica(
             master=self.sidebar_frame,
@@ -151,7 +151,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             default_color="#0A4B43",
             hover_color="#000000",
         )
-        seccion_vision.grid(row=8, column=0, padx=20, pady=(10, 10))
+        seccion_vision.grid(row=3, column=0, padx=20, pady=(10, 10))
 
         #seccion_segmentacion = SeccionDinamica(
         #     master=self.sidebar_frame,
@@ -1300,48 +1300,84 @@ class InterfazProcesadorImagenes(ctk.CTk):
         except Exception as e:
             self.mostrar_mensaje(f"❌ Error: {str(e)}")
 
+    def wrap_funcion(self, funcion):
+        def wrapper(*args, **kwargs):
+            resultado = funcion(*args, **kwargs)
+            if isinstance(resultado, tuple):
+                return resultado[0]
+            return resultado
+
+        return wrapper
+
     def cargar_botones(self, botones_config):
         """
         Convierte la configuración de botones planos en funciones dinámicas.
+        Aplica el wrapper para manejar funciones que devuelven tuplas.
+        Soporta rutas largas y paneles pasados como string.
         """
         botones_resultado = []
 
         for texto, funcion_path, tab, panel, mensaje in botones_config:
             partes = funcion_path.split(".")
-            modulo = ".".join(partes[:-1])
             metodo = partes[-1]
+            ruta_modulos = partes[:-1]
 
-            funcion = getattr(getattr(self, modulo), metodo)
+            # Resolver la ruta completa dentro de self
+            try:
+                obj = functools.reduce(lambda o, attr: getattr(o, attr), ruta_modulos, self)
+                funcion = getattr(obj, metodo)
+            except AttributeError as e:
+                print(f"❌ No se pudo resolver '{funcion_path}' -> {e}")
+                continue
+
+            # Envolver la función para limpiar el retorno
+            funcion_envuelta = self.wrap_funcion(funcion)
 
             requiere_obj = "vecindad" in metodo.lower()
 
             botones_resultado.append(
-                (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
-                self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+                (
+                    texto,
+                    lambda f=funcion_envuelta, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                    self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r)
+                )
             )
 
         return botones_resultado
 
     def cargar_subsecciones(self, subsecciones_config):
         """
-        Convierte la configuración de subsecciones en botones dinámicos.
+        Convierte la configuración de subsecciones (con varios grupos de botones)
+        en estructuras listas para usar con SeccionDinamica.
+        Aplica el wrapper automáticamente a las funciones.
         """
         subsecciones_resultado = []
 
         for sub_titulo, botones, color in subsecciones_config:
             botones_convertidos = []
+
             for texto, funcion_path, tab, panel, mensaje in botones:
                 partes = funcion_path.split(".")
-                modulo = ".".join(partes[:-1])
                 metodo = partes[-1]
+                ruta_modulos = partes[:-1]
 
-                funcion = getattr(getattr(self, modulo), metodo)
+                try:
+                    obj = functools.reduce(lambda o, attr: getattr(o, attr), ruta_modulos, self)
+                    funcion = getattr(obj, metodo)
+                except AttributeError as e:
+                    print(f"❌ No se pudo resolver '{funcion_path}' -> {e}")
+                    continue
 
+                # Aplicar wrapper
+                funcion_envuelta = self.wrap_funcion(funcion)
                 requiere_obj = "vecindad" in metodo.lower()
 
                 botones_convertidos.append(
-                    (texto, lambda f=funcion, t=mensaje, tb=tab, p=panel, r=requiere_obj:
-                    self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r))
+                    (
+                        texto,
+                        lambda f=funcion_envuelta, t=mensaje, tb=tab, p=panel, r=requiere_obj:
+                        self.aplicar_funcion_generica(f, p, t, tabview=tb, requiere_objetos=r)
+                    )
                 )
 
             subsecciones_resultado.append((sub_titulo, botones_convertidos, color))
@@ -1352,10 +1388,10 @@ class InterfazProcesadorImagenes(ctk.CTk):
         """
         Aplica cualquier función de procesamiento y muestra el resultado.
 
-        :param funcion: función a ejecutar (ej: self.ajustes_brillo.correccion_gamma)
-        :param panel: string con el nombre del panel (ej: "panel_segmentacion")
+        :param funcion: función a ejecutar (ej: self.vision.harris)
+        :param panel: string con el nombre del panel (ej: "panel_objetos")
         :param titulo: texto a mostrar en el título
-        :param tabview: pestaña a mostrar (ej: "🔧 Básico", "✂️ Segmentación")
+        :param tabview: pestaña a mostrar (ej: "Detección de objetos")
         :param actualizar: si debe actualizar la imagen en memoria
         :param requiere_objetos: si la función devuelve (imagen, cantidad_objetos)
         """
@@ -1363,10 +1399,25 @@ class InterfazProcesadorImagenes(ctk.CTk):
             return
 
         try:
-            # convertir string a variable real
+
             panel_obj = getattr(self, panel)
 
-            if requiere_objetos:
+            # Caso especial para Harris no actualizar la imagen original
+            if "harris" in funcion.__name__.lower():
+                imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
+                if imagen_procesada is not None:
+
+                    self.mostrar_imagen(
+                        panel_obj,
+                        imagen_procesada,
+                        f"{titulo}\nImagen {self.indice_actual + 1}"
+                    )
+                    if tabview:
+                        self.tabview.set(tabview)
+                else:
+                    self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
+
+            elif requiere_objetos:
                 imagen_procesada, cantidad_objetos = funcion(img=self.imagen_display[self.indice_actual])
                 if imagen_procesada is not None:
                     if actualizar:
@@ -1381,6 +1432,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
                         self.tabview.set(tabview)
                 else:
                     self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
+
             else:
                 imagen_procesada = funcion(img=self.imagen_display[self.indice_actual])
                 if imagen_procesada is not None:

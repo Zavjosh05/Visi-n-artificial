@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import cv2 as cv
 
@@ -17,10 +18,15 @@ class Vision:
             np.array([[-3, 5, 5], [-3, 0, 5], [-3, -3, -3]])  # Noroeste
         ]
 
+        if not (len(img.shape) == 2 or (len(img.shape) == 3 and img.shape[2] == 1)):
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
         edges = np.zeros_like(img, dtype=np.uint8)
         for mask in kirsch_masks:
-            filtered = cv.filter2D(img, cv.CV_16S, mask)
-            abs_filtered = cv.convertScaleAbs(filtered)
+            filtered = self.convolucion_manual(img,mask)
+            abs_filtered = self.convert_scale_abs_manual(filtered)
+            # abs_filtered = cv.convertScaleAbs(filtered)
+            #abs_filtered = self.normalizar_manual(filtered)
             edges = np.maximum(edges, abs_filtered)
 
         return edges
@@ -46,16 +52,20 @@ class Vision:
         grad_x = self.convolucion_manual(img_float, sobel_x)
         grad_y = self.convolucion_manual(img_float, sobel_y)
 
-        magnitude = np.sqrt(np.square(grad_x) + np.square(grad_y))
+        angulo = np.arctan2(grad_y, grad_x) * 180 / np.pi
 
+        magnitude = np.sqrt(np.square(grad_x) + np.square(grad_y))
         magnitude = self.normalizar_manual(magnitude)
 
-        return magnitude
+        return magnitude, angulo
 
     def convolucion_manual(self, img, kernel):
         """
         Aplica convolución manualmente sin usar filter2D
         """
+        if (len(img.shape) != 2):
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
         img_h, img_w = img.shape
         kernel_h, kernel_w = kernel.shape
 
@@ -75,6 +85,16 @@ class Vision:
                 output[i, j] = np.sum(region * kernel)
 
         return output
+
+    def convert_scale_abs_manual(self,img, alpha=1.0, beta=0.0):
+        """
+        Implementacion artesanal de ScaleAbs pq da cosas diferentes Kirsch con normalizar_manual
+        """
+        scaled = img.astype(np.float32) * alpha + beta
+        abs_scaled = np.abs(scaled)
+        abs_scaled = np.clip(abs_scaled, 0, 255)
+
+        return abs_scaled.astype(np.uint8)
 
     def normalizar_manual(self, img):
         """
@@ -141,3 +161,181 @@ class Vision:
         angulo = self.normalizar_manual(angulo)
 
         return angulo
+
+    def prewit(this, img):
+
+        mascara_x = np.array([[-1, 0, 1], [-1, 0, 1], [-1, 0, 1]], dtype=np.float32)
+        mascara_y = np.array([[-1, -1, -1], [0, 0, 0], [1, 1, 1]], dtype=np.float32)
+
+        convolution_x = this.convolucion_manual(img, mascara_x)
+        convolution_y = this.convolucion_manual(img, mascara_y)
+
+        prewit_img = np.sqrt(np.power(convolution_x, 2) + np.power(convolution_y, 2))
+        prewit_img = this.normalizar_manual(prewit_img)
+
+        return prewit_img
+
+    def filtro_gaussiano(this, img):
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        varianza = 7
+        tam_kernel = 5
+
+        constante = (1 / (2 * np.pi * varianza))
+
+        kernel = np.zeros((tam_kernel, tam_kernel), dtype=np.float32)
+
+        resultado = np.zeros_like(img, dtype=np.float32)
+
+        for i in range(tam_kernel):
+            for j in range(tam_kernel):
+                kernel[i][j] = constante * pow(np.e, -(((j - 2) + (i - 2)) / (2 * varianza)))
+
+        resultado = this.convolucion_manual(img, kernel)
+
+        resultado = this.normalizar_manual(resultado)
+
+        return resultado
+
+    def canny(this, img):
+        suavizado = this.filtro_gaussiano(img)
+        bordes, angulo = this.sobel(suavizado)
+        supresion = this.supresion_no_max(bordes, angulo)
+        umbralizacion = this.umbralizacion_doble(supresion, [40, 100], [120, 255])
+        canny_img = this.seguimiento_histéresis(umbralizacion, [40, 100], [120, 255])
+
+        return canny_img
+
+    def supresion_no_max(this, img, angulo):
+
+        resultado = np.zeros_like(img, dtype=np.uint8)
+
+        for i in range(1, img.shape[0] - 1):
+            for j in range(1, img.shape[1] - 1):
+                if angulo[i][j] >= 0 and angulo[i][j] < 45:
+                    val1 = img[i][j - 1]
+                    val2 = img[i][j + 1]
+                elif angulo[i][j] >= 45 and angulo[i][j] < 90:
+                    val1 = img[i - 1][j - 1]
+                    val2 = img[i + 1][j + 1]
+                elif angulo[i][j] >= 90 and angulo[i][j] < 135:
+                    val1 = img[i - 1][j]
+                    val2 = img[i + 1][j]
+                elif angulo[i][j] >= 135 and angulo[i][j] <= 180:
+                    val1 = img[i - 1][j + 1]
+                    val2 = img[i + 1][j - 1]
+
+                if img[i][j] >= val1 and img[i][j] >= val2:
+                    resultado[i][j] = img[i][j]
+
+        return resultado
+
+    def umbralizacion_doble(this, img, umbral, valores):
+
+        resultado = np.zeros_like(img, dtype=np.uint8)
+
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]):
+                if img[i][j] >= umbral[0] and img[i][j] < umbral[1]:
+                    resultado[i][j] = valores[0]
+                elif img[i][j] >= umbral[1]:
+                    resultado[i][j] = valores[1]
+
+        return resultado
+
+    def seguimiento_histéresis(this, img, umbral, valores):
+
+        resultado = np.zeros_like(img, dtype=np.uint8)
+        resultado_max = np.where(img >= umbral[1])
+        resultad_min = np.where((img >= umbral[0]) & (img < umbral[1]))
+
+        resultado[resultado_max] = valores[1]
+        resultado[resultad_min] = valores[0]
+
+        for i in range(1, img.shape[0] - 1):
+            for j in range(1, img.shape[1] - 1):
+                if resultado[i][j] == valores[0]:
+                    if np.any(resultado[i - 1:i + 2, j - 1:j + 2] == valores[1]):
+                        resultado[i][j] = valores[1]
+                    else:
+                        resultado[i][j] = 0
+
+        return resultado
+
+    def harris(self, img, k=0.04, umbral_rel=0.01, tam_ventana=3):
+        """
+        Implementación mejorada del detector de esquinas de Harris.
+        k: parámetro empírico (entre 0.04 y 0.06)
+        umbral_rel: umbral relativo respecto al valor máximo de respuesta
+        tam_ventana: tamaño de la ventana gaussiana (3x3 o 5x5)
+        """
+
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        img_gray = img_gray.astype(np.float32)
+
+        # Calcular gradientes usando sobel existente
+        magnitud, angulo = self.sobel(img_gray)
+
+        magnitud = magnitud.astype(np.float32)
+
+        Ix = magnitud * np.cos(angulo * np.pi / 180.0)
+        Iy = magnitud * np.sin(angulo * np.pi / 180.0)
+
+        Ixx = Ix ** 2
+        Iyy = Iy ** 2
+        Ixy = Ix * Iy
+
+        if tam_ventana == 3:
+            kernel_gauss = np.array([[1, 2, 1],
+                                     [2, 4, 2],
+                                     [1, 2, 1]], dtype=np.float32)
+        else:
+            kernel_gauss = np.array([[1, 4, 6, 4, 1],
+                                     [4, 16, 24, 16, 4],
+                                     [6, 24, 36, 24, 6],
+                                     [4, 16, 24, 16, 4],
+                                     [1, 4, 6, 4, 1]], dtype=np.float32)
+
+        kernel_gauss /= np.sum(kernel_gauss)
+
+        Sxx = self.convolucion_manual(Ixx, kernel_gauss)
+        Syy = self.convolucion_manual(Iyy, kernel_gauss)
+        Sxy = self.convolucion_manual(Ixy, kernel_gauss)
+
+        detM = (Sxx * Syy) - (Sxy ** 2)
+        traceM = Sxx + Syy
+        R = detM - k * (traceM ** 2)
+
+        R_suprimido = self.supresion_no_maxima_harris(R, tam_vecindario=3)
+
+        R_norm = self.normalizar_manual(R_suprimido)
+
+        umbral = umbral_rel * np.max(R_norm)
+        esquinas = np.zeros_like(R_norm, dtype=np.uint8)
+        esquinas[R_norm > umbral] = 255
+
+        return esquinas
+
+    def supresion_no_maxima_harris(self, R, tam_vecindario=3):
+        """
+        Supresión no máxima para refinar la detección de esquinas Harris.
+        Conserva solo los máximos locales en una vecindad.
+        """
+        pad = tam_vecindario // 2
+        R_padded = np.pad(R, pad, mode='constant', constant_values=0)
+        R_suprimido = np.zeros_like(R)
+
+        for i in range(R.shape[0]):
+            for j in range(R.shape[1]):
+                # Extraer vecindario
+                vecindario = R_padded[i:i + tam_vecindario, j:j + tam_vecindario]
+                centro = vecindario[pad, pad]
+
+                if centro == np.max(vecindario) and centro > 0:
+                    R_suprimido[i, j] = centro
+
+        return R_suprimido
