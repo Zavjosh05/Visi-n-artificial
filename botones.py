@@ -88,6 +88,7 @@ botones_vision = [
 botones_vision_dos = [
     ("Detector de Esquinas de Harris", "vision.harris", "🧊 Detección de objetos", "panel_objetos", "Detector de Esquinas de Harris"),
     ("Análisis de perímetro","vision.analisisPerimetro","🧊 Detección de objetos","panel_objetos","Análisis de perímetro"),
+    ("Descriptores de Fourier","vision.descriptoresFourier","🧊 Detección de objetos","panel_objetos","Descriptores de Fourier"),
     ("Análisis de superficie","vision.analisisSuperficie","🧊 Detección de objetos","panel_objetos","Análisis de superficie"),
     ("Descriptores de región","vision.descriptores","🧊 Detección de objetos","panel_objetos","Descriptores de región"),
 ]

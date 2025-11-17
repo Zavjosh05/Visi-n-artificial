@@ -448,3 +448,45 @@ class Vision:
             cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1)
 
         return output
+
+    def descriptoresFourier(self, img, M=10000):
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        for i, cnt in enumerate(contours):
+            z = np.array([complex(p[0][0], p[0][1]) for p in cnt])
+
+            Z = np.fft.fft(z)
+
+            zReducido = np.zeros_like(Z)
+            centro = len(Z) // 2
+            inicio = max(0, centro - M // 2)
+            fin = min(len(Z), centro + M // 2)
+            zReducido[inicio:fin] = Z[inicio:fin]
+
+            zReconstruido = np.fft.ifft(zReducido)
+            puntos = np.array([[int(p.real), int(p.imag)] for p in zReconstruido])
+
+            cv2.polylines(output, [puntos], isClosed=True, color=(255, 0, 0), thickness=1)
+
+            perimetro = cv2.arcLength(puntos, closed=True)
+
+            print(f"Contorno {i} reconstruido con valor: {perimetro:.2f} usando {M} descriptores de Fourier.")
+
+            momentos = cv2.moments(cnt)
+            if momentos["m00"] != 0:
+                cx = int(momentos["m10"] / momentos["m00"])
+                cy = int(momentos["m01"] / momentos["m00"])
+            else:
+                cx, cy = cnt[0][0]
+
+            texto = f"{i}"
+            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+
+        return output
