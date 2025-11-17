@@ -86,6 +86,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
         #botones_segmentacion = [(texto,getattr(self,comando)) for texto, comando in btn.botones_segmentacion]
 
         botones_vision = self.cargar_botones(btn.botones_vision)
+        botones_vision_dos = self.cargar_botones(btn.botones_vision_dos)
 
 
 
@@ -152,6 +153,15 @@ class InterfazProcesadorImagenes(ctk.CTk):
             hover_color="#000000",
         )
         seccion_vision.grid(row=3, column=0, padx=20, pady=(10, 10))
+
+        seccion_vision_dos = SeccionDinamica(
+            master=self.sidebar_frame,
+            titulo="Vision 2",
+            botones=botones_vision_dos,
+            default_color="#0A4B43",
+            hover_color="#000000",
+        )
+        seccion_vision_dos.grid(row=4, column=0, padx=20, pady=(10, 10))
 
         #seccion_segmentacion = SeccionDinamica(
         #     master=self.sidebar_frame,
@@ -564,7 +574,26 @@ class InterfazProcesadorImagenes(ctk.CTk):
             imagen_binarizada = self.procesador.aplicar_binarizacion(imagen_binarizada, umbral)
 
             self.imagen_display[self.indice_actual] = imagen_binarizada
-            self.mostrar_imagen(self.panel_basico, imagen_binarizada, f"Imagen {self.indice_actual+1} binarizada\numbral de: {umbral}")
+            self.mostrar_imagen(self.panel_basico, imagen_binarizada, f"Imagen {self.indice_actual+1} binarizada\nUmbral de: {umbral}")
+            self.tabview.set("🔧 Básico")
+        except Exception as e:
+            self.mostrar_mensaje(f"❌ Error: {str(e)}")
+
+    def otsu(self):
+        if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
+            return
+
+        try:
+            imagen_gris = self.procesador.convertir_a_grises(self.imagen_display[self.indice_actual])
+
+            umbral, imagen_binarizada = cv2.threshold(imagen_gris, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+            self.imagen_display[self.indice_actual] = imagen_binarizada
+            self.mostrar_imagen(
+                self.panel_basico,
+                imagen_binarizada,
+                f"Imagen {self.indice_actual + 1} binarizada con Otsu\nUmbral de: {umbral}"
+            )
             self.tabview.set("🔧 Básico")
         except Exception as e:
             self.mostrar_mensaje(f"❌ Error: {str(e)}")

@@ -2,6 +2,7 @@
 botones_procesamiento = [
     ("🔳 Escala de Grises", "convertir_a_grises"),
     ("📊 Binarizar", "aplicar_umbral"),
+    ("📊 Binarizar con método de Otsu", "otsu"),
     ("📊 Calcular Histogramas", "calcular_histogramas")
 ]
 
@@ -81,6 +82,12 @@ botones_vision = [
     ("Operador de Roberts","vision.roberts","✂️ Segmentación","panel_segmentacion","Operador de Roberts"),
     ("Método de Frei-chen","vision.freichen","✂️ Segmentación","panel_segmentacion","Método de Frei-chen"),
     ("Canny","vision.canny","✂️ Segmentación","panel_segmentacion","Canny"),
-    ("Prewitt","vision.prewit","✂️ Segmentación","panel_segmentacion","Prewitt"),
-    ("Harris", "vision.harris", "🧊 Detección de objetos", "panel_objetos", "Detector de esquinas Harris"),
+    ("Prewitt","vision.prewit","✂️ Segmentación","panel_segmentacion","Prewitt")
+]
+
+botones_vision_dos = [
+    ("Detector de Esquinas de Harris", "vision.harris", "🧊 Detección de objetos", "panel_objetos", "Detector de Esquinas de Harris"),
+    ("Análisis de perímetro","vision.analisisPerimetro","🧊 Detección de objetos","panel_objetos","Análisis de perímetro"),
+    ("Análisis de superficie","vision.analisisSuperficie","🧊 Detección de objetos","panel_objetos","Análisis de superficie"),
+    ("Descriptores de región","vision.descriptores","🧊 Detección de objetos","panel_objetos","Descriptores de región"),
 ]

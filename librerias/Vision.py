@@ -262,6 +262,10 @@ class Vision:
 
         return resultado
 
+    #####################################
+    ### CHINGOASUMADRETODOACINCOPESOS ###
+    #####################################
+
     def harris(self, img, k=0.04, umbral_rel=0.01, tam_ventana=3):
         """
         Implementación mejorada del detector de esquinas de Harris.
@@ -339,3 +343,108 @@ class Vision:
                     R_suprimido[i, j] = centro
 
         return R_suprimido
+
+    def analisisPerimetro(self, img):
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+        output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        for i, cnt in enumerate(contours):
+            perimetro = cv2.arcLength(cnt, closed=True)
+            cv2.drawContours(output, [cnt], -1, (0, 255, 0), 2)
+
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = cnt[0][0]
+
+            texto = f"{i}"
+            print(f"Perimetro de {i}: {perimetro}")
+            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 0, 255), 1)
+
+        return output
+
+    def analisisSuperficie(self, img):
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+        output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        for i, cnt in enumerate(contours):
+            area = cv2.contourArea(cnt)
+            cv2.drawContours(output, [cnt], -1, (0, 255, 0), 2)
+
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = cnt[0][0]
+
+            texto = f"{i}"
+            print(f"Superficie de {i}: {area:.2f}")
+            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+        return output
+
+    def descriptores(self, img):
+        if len(img.shape) == 3:
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        for i, cnt in enumerate(contours):
+            area = cv2.contourArea(cnt)
+            perimetro = cv2.arcLength(cnt, True)
+
+            # Circularidad
+            if perimetro == 0:
+                circularidad = 0
+            else:
+                circularidad = (4 * np.pi * area) / (perimetro ** 2)
+
+            # Compactidad
+            if area != 0:
+                compactidad = (perimetro ** 2) / area
+            else:
+                compactidad = 0
+
+            # Excentricidad
+            if len(cnt) >= 5:
+                (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
+                excentricidad = np.sqrt(1 - (MA / ma) ** 2) if ma != 0 else 0
+            else:
+                excentricidad = 0
+
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                cx, cy = cnt[0][0]
+
+            cv2.drawContours(output, [cnt], -1, (0, 255, 0), 2)
+            texto = f"{i}"
+            print(f"{i}:\tCircularidad: {circularidad:.1f}, Compactidad: {compactidad:.1f}, Excentricidad: {excentricidad:.2f}")
+            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1)
+
+        return output
