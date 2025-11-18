@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import cv2 as cv
+import tkinter as tk
+from tkinter import ttk
 
 class Vision:
     def __init__(self):
@@ -550,3 +552,133 @@ class Vision:
         output[harris_dilated > threshold * harris_dilated.max()] = [0, 0, 255]
 
         return output
+
+    def morphological_skeleton(self, img):
+
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        _, copia = cv2.threshold(gray, 90, 255, cv2.THRESH_BINARY)
+
+        # Crear ventana
+        rot = tk.Tk()
+        rot.title("Seleccionar forma")
+        rot.geometry("400x400")
+        rot.configure(bg="#2B2B2B")
+
+        opciones = ["Diamante", "Cruz", "Recto", "Elipse"]
+
+        combo = ttk.Combobox(rot, values=opciones, state="readonly")
+        combo.set("Elige una forma")
+        combo.pack(pady=20)
+
+        resultado = {"morph": None}
+
+        def seleccionar_opcion():
+            opcion = combo.get()
+            print("OPCION:", opcion)
+
+            if opcion == "Diamante":
+                resultado["morph"] = cv2.MORPH_DIAMOND
+            elif opcion == "Cruz":
+                resultado["morph"] = cv2.MORPH_CROSS
+            elif opcion == "Recto":
+                resultado["morph"] = cv2.MORPH_RECT
+            elif opcion == "Elipse":
+                resultado["morph"] = cv2.MORPH_ELLIPSE
+
+            rot.destroy()
+
+        tk.Button(
+            rot,
+            text="Aceptar",
+            bg="#1F76C2",
+            fg="white",
+            activebackground="#226EB5",
+            relief="flat",
+            width=12,
+            pady=5,
+            bd=0,
+            command=seleccionar_opcion
+        ).pack(pady=20)
+
+        rot.wait_window()
+
+        morph = resultado["morph"]
+
+
+        skeleton = np.zeros_like(copia)
+
+        kernel = cv2.getStructuringElement(morph, (3, 3))
+
+        while True:
+
+            erosion = cv2.erode(copia, kernel)
+            apertura = cv2.morphologyEx(erosion, cv2.MORPH_OPEN, kernel)
+            contorno = cv2.subtract(erosion, apertura)
+
+            skeleton = cv2.bitwise_or(skeleton, contorno)
+
+            copia = erosion.copy()
+
+            if cv2.countNonZero(copia) == 0:
+                break
+
+        return skeleton
+
+    def segmentacion_watershed(self, img):
+        imagen = img.copy()
+        if len(imagen.shape) == 3:
+            gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = imagen.copy()
+
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+
+        sure_bg = cv2.dilate(opening, kernel, iterations=3)
+
+        dist = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        _, sure_fg = cv2.threshold(dist, 0.5 * dist.max(), 255, 0)
+        sure_fg = np.uint8(sure_fg)
+
+        unknown = cv2.subtract(sure_bg, sure_fg)
+
+        _, markers = cv2.connectedComponents(sure_fg)
+        markers = markers + 1
+        markers[unknown == 255] = 0
+
+        markers = cv2.watershed(imagen, markers)
+        imagen[markers == -1] = [0, 0, 255]
+
+        return imagen
+
+    def segmentacion_k_means(self, img):
+        Z = img.reshape((-1, 3))
+        Z = np.float32(Z)
+
+        K = 2
+
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        _, labels, centers = cv2.kmeans(Z, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+
+        centers = np.uint8(centers)
+        res = centers[labels.flatten()]
+        segmented = res.reshape(img.shape)
+
+        return segmented
+
+    def segmentacion_otsu(self, img):
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        lap = cv2.Laplacian(gray, cv2.CV_64F)
+        lap = cv2.convertScaleAbs(lap)
+
+        return lap

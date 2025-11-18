@@ -1367,7 +1367,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             # Determinar si es template matching
             es_template = "template" in metodo.lower()
             requiere_obj = "vecindad" in metodo.lower()
-
+    
             botones_resultado.append(
                 (
                     texto,

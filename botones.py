@@ -94,4 +94,8 @@ botones_vision_dos = [
     ("Descriptores de Fourier","vision.descriptoresFourier","🧊 Detección de objetos","panel_objetos","Descriptores de Fourier"),
     ("Análisis de superficie","vision.analisisSuperficie","🧊 Detección de objetos","panel_objetos","Análisis de superficie"),
     ("Descriptores de región","vision.descriptores","🧊 Detección de objetos","panel_objetos","Descriptores de región"),
+    ("Esqueleto por morfología","vision.morphological_skeleton","🧊 Detección de objetos","panel_objetos","Esqueleto por morfología"),
+    ("Segmentación por WaterShed", "vision.segmentacion_watershed","🧊 Detección de objetos","panel_objetos","Esqueleto por morfología"),
+    ("Segmentación por K-Means", "vision.segmentacion_k_means","🧊 Detección de objetos","panel_objetos","Segmentación por K-Means"),
+    ("Segmentación por Otsu", "vision.segmentacion_otsu","🧊 Detección de objetos","panel_objetos","Esqueleto por Otsu")
 ]
