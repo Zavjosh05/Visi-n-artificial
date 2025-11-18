@@ -490,3 +490,63 @@ class Vision:
             cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
         return output
+
+    def template_match(self, img, template, method=cv.TM_CCOEFF_NORMED):
+        """Template Matching con OpenCV - devuelve imagen con coincidencia marcada"""
+
+        # Convertir a escala de grises si es necesario
+        img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY) if len(img.shape) == 3 else img.copy()
+        template_gray = cv.cvtColor(template, cv.COLOR_BGR2GRAY) if len(template.shape) == 3 else template.copy()
+
+        h, w = template_gray.shape
+
+        # Aplicar template matching
+        result = cv.matchTemplate(img_gray, template_gray, method)
+        min_val, max_val, min_loc, max_loc = cv.minMaxLoc(result)
+
+        # Determinar mejor ubicacion segun metodo
+        top_left = min_loc if method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED] else max_loc
+        bottom_right = (top_left[0] + w, top_left[1] + h)
+
+        # Dibujar rectangulo en imagen original
+        output = img.copy()
+        cv.rectangle(output, top_left, bottom_right, (0, 0, 255), 2)
+
+        return output
+
+    def template_match_with_location(self, img, template, method=cv.TM_CCOEFF_NORMED):
+        """Template Matching que devuelve imagen y coordenadas de coincidencia"""
+
+        img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY) if len(img.shape) == 3 else img.copy()
+        template_gray = cv.cvtColor(template, cv.COLOR_BGR2GRAY) if len(template.shape) == 3 else template.copy()
+
+        h, w = template_gray.shape
+
+        result = cv.matchTemplate(img_gray, template_gray, method)
+        min_val, max_val, min_loc, max_loc = cv.minMaxLoc(result)
+
+        top_left = min_loc if method in [cv.TM_SQDIFF, cv.TM_SQDIFF_NORMED] else max_loc
+        bottom_right = (top_left[0] + w, top_left[1] + h)
+
+        output = img.copy()
+        cv.rectangle(output, top_left, bottom_right, (0, 255, 0), 2)
+
+        # Devolver imagen y coordenadas (x, y, w, h)
+        return output, (top_left[0], top_left[1], w, h)
+
+    def harris_corners(self, img, block_size=2, ksize=3, k=0.04, threshold=0.01):
+        """Detector de esquinas Harris usando OpenCV"""
+
+        # Convertir a escala de grises
+        gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY) if len(img.shape) == 3 else img.copy()
+        gray_float = np.float32(gray)
+
+        # Aplicar Harris
+        harris_response = cv.cornerHarris(gray_float, block_size, ksize, k)
+        harris_dilated = cv.dilate(harris_response, None)
+
+        # Marcar esquinas en imagen original
+        output = img.copy()
+        output[harris_dilated > threshold * harris_dilated.max()] = [0, 0, 255]
+
+        return output
