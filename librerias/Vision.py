@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 import cv2 as cv
+import tkinter as tk
+from tkinter import ttk
 
 class Vision:
     def __init__(self):
@@ -543,5 +545,284 @@ class Vision:
 
         output = img.copy()
         output[harris_dilated > threshold * harris_dilated.max()] = [0, 0, 255]
+
+        return output
+
+    def morphological_skeleton(self, img):
+
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        _, copia = cv2.threshold(gray, 90, 255, cv2.THRESH_BINARY)
+
+        # Crear ventana
+        rot = tk.Tk()
+        rot.title("Seleccionar forma")
+        rot.geometry("400x400")
+        rot.configure(bg="#2B2B2B")
+
+        opciones = ["Diamante", "Cruz", "Recto", "Elipse"]
+
+        combo = ttk.Combobox(rot, values=opciones, state="readonly")
+        combo.set("Elige una forma")
+        combo.pack(pady=20)
+
+        resultado = {"morph": None}
+
+        def seleccionar_opcion():
+            opcion = combo.get()
+            print("OPCION:", opcion)
+
+            if opcion == "Diamante":
+                resultado["morph"] = cv2.MORPH_DIAMOND
+            elif opcion == "Cruz":
+                resultado["morph"] = cv2.MORPH_CROSS
+            elif opcion == "Recto":
+                resultado["morph"] = cv2.MORPH_RECT
+            elif opcion == "Elipse":
+                resultado["morph"] = cv2.MORPH_ELLIPSE
+
+            rot.destroy()
+
+        tk.Button(
+            rot,
+            text="Aceptar",
+            bg="#1F76C2",
+            fg="white",
+            activebackground="#226EB5",
+            relief="flat",
+            width=12,
+            pady=5,
+            bd=0,
+            command=seleccionar_opcion
+        ).pack(pady=20)
+
+        rot.wait_window()
+
+        morph = resultado["morph"]
+
+
+        skeleton = np.zeros_like(copia)
+
+        kernel = cv2.getStructuringElement(morph, (3, 3))
+
+        while True:
+
+            erosion = cv2.erode(copia, kernel)
+            apertura = cv2.morphologyEx(erosion, cv2.MORPH_OPEN, kernel)
+            contorno = cv2.subtract(erosion, apertura)
+
+            skeleton = cv2.bitwise_or(skeleton, contorno)
+
+            copia = erosion.copy()
+
+            if cv2.countNonZero(copia) == 0:
+                break
+
+        return skeleton
+
+    def segmentacion_watershed(self, img):
+        imagen = img.copy()
+        if len(imagen.shape) == 3:
+            gray = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = imagen.copy()
+
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+        kernel = np.ones((3, 3), np.uint8)
+        opening = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=2)
+
+        sure_bg = cv2.dilate(opening, kernel, iterations=3)
+
+        dist = cv2.distanceTransform(opening, cv2.DIST_L2, 5)
+        _, sure_fg = cv2.threshold(dist, 0.5 * dist.max(), 255, 0)
+        sure_fg = np.uint8(sure_fg)
+
+        unknown = cv2.subtract(sure_bg, sure_fg)
+
+        _, markers = cv2.connectedComponents(sure_fg)
+        markers = markers + 1
+        markers[unknown == 255] = 0
+
+        markers = cv2.watershed(imagen, markers)
+        imagen[markers == -1] = [0, 0, 255]
+
+        return imagen
+
+    def segmentacion_k_means(self, img):
+        Z = img.reshape((-1, 3))
+        Z = np.float32(Z)
+
+        K = 2
+
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+        _, labels, centers = cv2.kmeans(Z, K, None, criteria, 10, cv2.KMEANS_RANDOM_CENTERS)
+
+        centers = np.uint8(centers)
+        res = centers[labels.flatten()]
+        segmented = res.reshape(img.shape)
+
+        return segmented
+
+    def segmentacion_otsu(self, img):
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        lap = cv2.Laplacian(gray, cv2.CV_64F)
+        lap = cv2.convertScaleAbs(lap)
+
+        return lap
+
+    # def skeleton_morfologia(self, img):
+    #     """
+    #     Obtiene el esqueleto usando morfología matemática (iteraciones de erosión-apertura).
+    #     Devuelve una imagen binaria en formato OpenCV.
+    #     """
+    #
+    #     if len(img.shape) == 3:
+    #         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    #
+    #     _, img = cv.threshold(img, 127, 255, cv.THRESH_BINARY)
+    #
+    #     img = img.copy()
+    #     skel = np.zeros(img.shape, np.uint8)
+    #
+    #     elemento = cv.getStructuringElement(cv.MORPH_CROSS, (3, 3))
+    #
+    #     while True:
+    #         erosion = cv.erode(img, elemento)
+    #         apertura = cv.morphologyEx(erosion, cv.MORPH_OPEN, elemento)
+    #         temp = cv.subtract(erosion, apertura)
+    #         skel = cv.bitwise_or(skel, temp)
+    #         img = erosion.copy()
+    #
+    #         if cv.countNonZero(img) == 0:
+    #             break
+    #
+    #     return skel
+
+    def erosion_manual(self, img, kernel=None):
+        if len(img.shape) == 3:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+        _, img = cv.threshold(img, 127, 255, cv.THRESH_BINARY)
+
+        if kernel is None:
+            kernel = np.array([[1, 1, 1],
+                               [1, 1, 1],
+                               [1, 1, 1]], dtype=np.uint8)
+
+        kh, kw = kernel.shape
+        ph, pw = kh // 2, kw // 2
+
+        img_padded = np.pad(img, ((ph, ph), (pw, pw)), mode="constant", constant_values=0)
+        output = np.zeros_like(img)
+
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]):
+                region = img_padded[i:i + kh, j:j + kw]
+                if np.array_equal(region[kernel == 1], np.full(np.sum(kernel == 1), 255)):
+                    output[i, j] = 255
+
+        return output
+
+    def dilatacion_manual(self, img, kernel=None):
+        if len(img.shape) == 3:
+            img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
+        _, img = cv.threshold(img, 127, 255, cv.THRESH_BINARY)
+
+        if kernel is None:
+            kernel = np.array([[1, 1, 1],
+                               [1, 1, 1],
+                               [1, 1, 1]], dtype=np.uint8)
+
+        kh, kw = kernel.shape
+        ph, pw = kh // 2, kw // 2
+
+        img_padded = np.pad(img, ((ph, ph), (pw, pw)), mode="constant", constant_values=0)
+        output = np.zeros_like(img)
+
+        for i in range(img.shape[0]):
+            for j in range(img.shape[1]):
+                region = img_padded[i:i + kh, j:j + kw]
+                if np.any(region[kernel == 1] == 255):
+                    output[i, j] = 255
+
+        return output
+
+    def apertura_manual(self, img, kernel=None):
+        erosion = self.erosion_manual(img, kernel)
+        apertura = self.dilatacion_manual(erosion, kernel)
+        return apertura
+
+    def cierre_manual(self, img, kernel=None):
+        dilatada = self.dilatacion_manual(img, kernel)
+        cierre = self.erosion_manual(dilatada, kernel)
+        return cierre
+
+    def gradiente_morfologico(self, img, kernel=None):
+        dil = self.dilatacion_manual(img, kernel)
+        ero = self.erosion_manual(img, kernel)
+        grad = cv.subtract(dil, ero)
+        return grad
+
+    def tophat_manual(self, img, kernel=None):
+        apertura = self.apertura_manual(img, kernel)
+        tophat = cv.subtract(img, apertura)
+        return tophat
+
+    def blackhat_manual(self, img, kernel=None):
+        cierre = self.cierre_manual(img, kernel)
+        blackhat = cv.subtract(cierre, img)
+        return blackhat
+
+    def template_matching_manual(self, img, template):
+        """
+        Implementación artesanal de Template Matching usando correlación cruzada normalizada.
+        Devuelve la imagen original con un rectángulo marcando la mejor coincidencia.
+        """
+
+        if len(img.shape) == 3:
+            img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        else:
+            img_gray = img.copy()
+
+        if len(template.shape) == 3:
+            template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+
+        img = img_gray.astype(np.float32)
+        tpl = template.astype(np.float32)
+
+        h, w = tpl.shape
+        H, W = img.shape
+
+        correlacion = np.zeros((H - h + 1, W - w + 1), dtype=np.float32)
+
+        tpl_mean = np.mean(tpl)
+        tpl_std = np.std(tpl)
+
+        for i in range(H - h + 1):
+            for j in range(W - w + 1):
+
+                region = img[i:i + h, j:j + w]
+
+                region_mean = np.mean(region)
+                region_std = np.std(region)
+
+                if region_std == 0 or tpl_std == 0:
+                    correlacion[i, j] = 0
+                else:
+                    correlacion[i, j] = np.sum((region - region_mean) * (tpl - tpl_mean)) / (region_std * tpl_std)
+
+        y, x = np.unravel_index(np.argmax(correlacion), correlacion.shape)
+
+        output = cv.cvtColor(img_gray, cv.COLOR_GRAY2BGR)
+        cv.rectangle(output, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
         return output
