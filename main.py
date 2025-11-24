@@ -6,6 +6,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from tkinter import filedialog, messagebox
 import os
 from PIL import Image, ImageTk
+from joblib import dump
 
 from botones import botones_procesamiento, botones_ajustes_de_brillo, subsecciones_operaciones_aritmeticas_y_logicas, \
     botones_filtros_pasa_altas
@@ -1675,7 +1676,62 @@ class InterfazProcesadorImagenes(ctk.CTk):
         self.limpiar_pestana("panel_objetos")
         self.limpiar_pestana("panel_histogramas")
 
+def cargarDataset(ruta):
+    imagenes = []
+    etiquetas = []
+
+    for archivo in os.listdir(ruta):
+        rutaIMG = os.path.join(ruta, archivo)
+
+        if not archivo.lower().endswith((".png", ".jpg", ".jpeg")):
+            continue
+
+        img = cv2.imread(rutaIMG)
+        if img is None:
+            continue
+
+        nombre = os.path.splitext(archivo)[0]
+
+        match = re.match(r"[A-Za-z]+", nombre)
+        if match:
+            etiqueta = match.group(0).lower()
+        else:
+            print("No se pudo extraer etiqueta de:", archivo)
+            continue
+
+        imagenes.append(img)
+        etiquetas.append(etiqueta)
+
+    return imagenes, etiquetas
+
+def entrenarClasificador():
+
+    imgs, labels = cargarDataset('dataset')
+
+    X = []
+    y = []
+
+    for img, label in zip(imgs, labels):
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        moments = cv2.moments(gray)
+        hu = cv2.HuMoments(moments).flatten()
+
+        hu = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
+
+        X.append(hu)
+        y.append(label)
+
+    X = np.array(X)
+    y = np.array(y)
+
+    from sklearn.neighbors import KNeighborsClassifier
+    clf = KNeighborsClassifier(5000)
+    clf.fit(X, y)
+
+    return clf
+
 
 if __name__ == "__main__":
+
     app = InterfazProcesadorImagenes()
     app.mainloop()

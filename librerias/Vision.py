@@ -3,6 +3,9 @@ import numpy as np
 import cv2 as cv
 import tkinter as tk
 from tkinter import ttk
+import os
+import re
+from joblib import load
 
 class Vision:
     def __init__(self):
@@ -826,6 +829,49 @@ class Vision:
         cv.rectangle(output, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
         return output
+
+    def clasificador(self, img):
+
+        clf = load("modelo.pkl")
+
+        salida = img.copy()
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        _, thresh = cv2.threshold(blur, 0, 255,cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+
+        thresh = cv2.bitwise_not(thresh)
+
+        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        for cnt in contornos:
+
+            area = cv2.contourArea(cnt)
+            if area < 200:
+                continue
+
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            roi = thresh[y:y + h, x:x + w]
+
+            white_ratio_roi = np.sum(roi == 255) / roi.size
+            if white_ratio_roi < 0.5:
+                roi = cv2.bitwise_not(roi)
+
+            moments = cv2.moments(roi)
+            hu = cv2.HuMoments(moments).flatten()
+
+            hu = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
+
+            pred = clf.predict([hu])[0]
+
+            cv2.rectangle(salida, (x, y), (x + w, y + h), (0,0,255), 3)
+            cv2.putText(salida, pred,(x, y - 10),cv2.FONT_HERSHEY_SIMPLEX,1, (0,0,255), 3
+            )
+
+        return salida
 
     def identificar_monedas(self, img):
         salida = img.copy()

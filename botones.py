@@ -98,5 +98,6 @@ botones_vision_dos = [
     ("Segmentación por WaterShed", "vision.segmentacion_watershed","🧊 Detección de objetos","panel_objetos","Esqueleto por morfología"),
     ("Segmentación por K-Means", "vision.segmentacion_k_means","🧊 Detección de objetos","panel_objetos","Segmentación por K-Means"),
     ("Segmentación por Otsu", "vision.segmentacion_otsu","🧊 Detección de objetos","panel_objetos","Esqueleto por Otsu"),
-    ("Encontrar Monedas", "vision.identificar_monedas","🧊 Detección de objetos","panel_objetos","Encontrar Monedas")
+    ("Encontrar Monedas", "vision.identificar_monedas","🧊 Detección de objetos","panel_objetos","Encontrar Monedas"),
+    ("Clasificador", "vision.clasificador","🧊 Detección de objetos","panel_objetos","Clasificador de figuras usando KNN")
 ]
