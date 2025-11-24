@@ -826,3 +826,49 @@ class Vision:
         cv.rectangle(output, (x, y), (x + w, y + h), (0, 0, 255), 2)
 
         return output
+
+    def identificar_monedas(self, img):
+        salida = img.copy()
+
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, bin = cv2.threshold(gray, 90, 255, cv2.THRESH_BINARY)
+        else:
+            bin = img.copy()
+
+        contornos, _ = cv2.findContours(bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+        areas = []
+        for c in contornos:
+
+            area = cv2.contourArea(c)
+
+            if area < 500 or area > 20000:
+                continue
+
+            areas.append(area)
+
+            cv2.drawContours(salida, [c], -1, (0, 255, 0), 4)
+
+            M = cv2.moments(c)
+
+            if M["m00"] != 0:
+                cx = int(M["m10"] / M["m00"])
+                cy = int(M["m01"] / M["m00"])
+            else:
+                x, y, w, h = cv2.boundingRect(c)
+                cx = x + w // 2
+                cy = y + h // 2
+
+            if area > 6000 and area < 10000:
+                etiqueta = f"{.50}"
+            elif area > 10000 and area < 13000:
+                etiqueta = f"{1}"
+            elif area > 13000 and area < 16000:
+                etiqueta = f"{2}"
+            elif area > 16000 and area < 19500:
+                etiqueta = f"{5}"
+
+            cv2.putText(salida, etiqueta, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 2)
+
+        return salida

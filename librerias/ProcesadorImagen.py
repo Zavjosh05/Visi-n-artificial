@@ -16,8 +16,8 @@ class ProcesadorImagen:
     
     def cargar_imagen(self, ruta):
         self.imagen_original = cv2.imread(ruta)
-        if self.imagen_original is not None:
-            self.imagen_original = cv2.resize(self.imagen_original, (400, 400))
+        # if self.imagen_original is not None:
+        #     self.imagen_original = cv2.resize(self.imagen_original, (400, 400))
         return self.imagen_original
 
     def convertir_a_grises(self, img):

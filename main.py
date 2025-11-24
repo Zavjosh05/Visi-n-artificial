@@ -412,7 +412,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             if ruta is not None:
                 img = cv2.imread(ruta)
                 if img is not None:
-                    img = cv2.resize(img, (400,400))
+                    # img = cv2.resize(img, (400,400))
                     return img
         except Exception as e:
                 self.mostrar_mensaje(f"❌ Error: {str(e)}")
@@ -1603,7 +1603,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
             if factor < 1:
                 nueva_anchura = int(anchura * factor)
                 nueva_altura = int(altura * factor)
-                imagen_redimensionada = cv2.resize(imagen_rgb, (nueva_anchura, nueva_altura))
+                imagen_redimensionada = imagen_rgb
             else:
                 imagen_redimensionada = imagen_rgb
 

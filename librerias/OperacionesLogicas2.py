@@ -11,9 +11,9 @@ class OperacionesLogicas2:
     def cargar_imagenes(self, ruta1, ruta2):
         self.imagen1 = cv2.imread(ruta1)
         self.imagen2 = cv2.imread(ruta2)
-        if self.imagen1 is not None and self.imagen2 is not None:
-            self.imagen1 = cv2.resize(self.imagen1, (300, 300))
-            self.imagen2 = cv2.resize(self.imagen2, (300, 300))
+        # if self.imagen1 is not None and self.imagen2 is not None:
+        #     self.imagen1 = cv2.resize(self.imagen1, (300, 300))
+        #     self.imagen2 = cv2.resize(self.imagen2, (300, 300))
         return self.imagen1, self.imagen2
     
     def aplicar_suma(self, img1, img2):
