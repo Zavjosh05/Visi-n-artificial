@@ -1333,15 +1333,16 @@ class InterfazProcesadorImagenes(ctk.CTk):
     def wrap_funcion(self, funcion):
         def wrapper(*args, **kwargs):
             resultado = funcion(*args, **kwargs)
+            
             # Para template_match_with_location que devuelve (imagen, coordenadas)
-            # Solo necesitamos la imagen para mostrar
+            # Solo necesitamos la imagen para mostrar en funciones normales
             if isinstance(resultado, tuple) and len(resultado) == 2:
-                if hasattr(resultado[0], 'shape'):
-                    return resultado[0]
+                if hasattr(resultado[0], 'shape'):  # Si el primer elemento es una imagen
+                    return resultado[0]  # Devolver solo la imagen
             elif isinstance(resultado, tuple):
                 return resultado[0]
+            
             return resultado
-
         return wrapper
 
     def cargar_botones(self, botones_config):
@@ -1419,11 +1420,11 @@ class InterfazProcesadorImagenes(ctk.CTk):
             subsecciones_resultado.append((sub_titulo, botones_convertidos, color))
 
         return subsecciones_resultado
-
+    
     def aplicar_funcion_generica(self, funcion_envuelta, funcion_original, panel, titulo,
-                                 tabview=None, actualizar=True, requiere_objetos=False, es_template=False):
+                                tabview=None, actualizar=True, requiere_objetos=False, es_template=False):
         """
-        Aplica cualquier función de procesamiento y muestra el resultado.
+        Aplica cualquier funcion de procesamiento y muestra el resultado.
         """
         if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
             return
@@ -1434,23 +1435,29 @@ class InterfazProcesadorImagenes(ctk.CTk):
             # Caso especial para Template Matching - requiere imagen y template
             if es_template:
                 if self.imagen_1 is None or self.imagen_2 is None:
-                    self.mostrar_mensaje("Para Template Matching se necesitan ambas imágenes cargadas")
+                    self.mostrar_mensaje("Para Template Matching se necesitan ambas imagenes cargadas")
                     return
 
-                #intento de seleccion inteligente
-                imagen_principal = self.imagen_display[0]
-                template = self.imagen_display[1]
+                # Usar la imagen seleccionada como imagen principal
+                if self.indice_actual == 0:
+                    imagen_principal = self.imagen_display[0]
+                    template = self.imagen_display[1]
+                else:
+                    imagen_principal = self.imagen_display[1] 
+                    template = self.imagen_display[0]
 
-                # Usar la función ORIGINAL (no la envuelta) para pasar ambos parámetros
+                # Usar la funcion ORIGINAL (no la envuelta) para pasar ambos parametros
                 resultado = funcion_original(img=imagen_principal, template=template)
 
                 # Manejar diferentes tipos de retorno
+                titulo_final = titulo
                 if isinstance(resultado, tuple) and len(resultado) > 1:
                     imagen_procesada = resultado[0]
-                    # Si es template_match_with_location, mostrar coordenadas en el título
-                    if "ubicacion" in funcion_original.__name__.lower() and len(resultado) == 2:
+                    
+                    # Si es template_match_with_location, mostrar coordenadas en el titulo
+                    if "location" in funcion_original.__name__.lower() and len(resultado) == 2:
                         coords = resultado[1]
-                        titulo = f"{titulo}\nCoordenadas: x={coords[0]}, y={coords[1]}, w={coords[2]}, h={coords[3]}"
+                        titulo_final = f"{titulo}\nCoordenadas: x={coords[0]}, y={coords[1]}, w={coords[2]}, h={coords[3]}"
                 else:
                     imagen_procesada = resultado
 
@@ -1458,7 +1465,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
                     self.mostrar_imagen(
                         panel_obj,
                         imagen_procesada,
-                        f"{titulo}\nImagen {self.indice_actual + 1}"
+                        f"{titulo_final}\nImagen {self.indice_actual + 1}"
                     )
                     if tabview:
                         self.tabview.set(tabview)
@@ -1498,7 +1505,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
                     else:
                         self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
                 else:
-                    self.mostrar_mensaje(f"Error: La función no devolvió el formato esperado (imagen, cantidad)")
+                    self.mostrar_mensaje(f"Error: La funcion no devolvio el formato esperado (imagen, cantidad)")
 
             # Caso general para otras funciones
             else:
@@ -1518,7 +1525,7 @@ class InterfazProcesadorImagenes(ctk.CTk):
                     self.mostrar_mensaje(f"Error al aplicar {titulo} a la imagen {self.indice_actual + 1}")
 
         except Exception as e:
-            self.mostrar_mensaje(f"❌ Error: {str(e)}")
+            self.mostrar_mensaje(f"Error: {str(e)}")
 
     def guardar_imagen_actual(self):
         if self.verificar_imagen_cargada(self.imagen_display[self.indice_actual]) is False:
