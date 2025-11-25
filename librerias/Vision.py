@@ -785,50 +785,117 @@ class Vision:
         blackhat = cv.subtract(cierre, img)
         return blackhat
 
-    def template_matching_manual(self, img, template):
+    def IOU(self, boxA, boxB):
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[0] + boxA[2], boxB[0] + boxB[2])
+        yB = min(boxA[1] + boxA[3], boxB[1] + boxB[3])
+
+        interArea = max(0, xB - xA) * max(0, yB - yA)
+        boxAArea = boxA[2] * boxA[3]
+        boxBArea = boxB[2] * boxB[3]
+
+        return interArea / float(boxAArea + boxBArea - interArea + 1e-5)
+
+    def template_matching_manual(self, img, template, threshold=0.80, iou_thresh=0.30, max_matches=50):
         """
-        Implementación artesanal de Template Matching usando correlación cruzada normalizada.
-        Devuelve la imagen original con un rectángulo marcando la mejor coincidencia.
+        Template Matching artesanal con correlación cruzada normalizada (NCC) + máscara + NMS.
+        - No binariza la imagen principal
+        - Usa máscara del template para evitar fondo
+        - Permite varios matches sin cuadros sobrepuestos
+        Devuelve imagen BGR con rectángulos.
         """
+
+        # ---------- 1) Grises ----------
+        if img is None or template is None:
+            return None
 
         if len(img.shape) == 3:
-            img_gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            out = img.copy()
         else:
             img_gray = img.copy()
+            out = cv2.cvtColor(img_gray, cv2.COLOR_GRAY2BGR)
 
         if len(template.shape) == 3:
-            template = cv.cvtColor(template, cv.COLOR_BGR2GRAY)
+            tpl_gray = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+        else:
+            tpl_gray = template.copy()
 
-        img = img_gray.astype(np.float32)
-        tpl = template.astype(np.float32)
+        # Suavizado leve para bajar ruido sin destruir bordes
+        img_gray = cv2.GaussianBlur(img_gray, (3, 3), 0)
+        tpl_gray = cv2.GaussianBlur(tpl_gray, (3, 3), 0)
 
-        h, w = tpl.shape
-        H, W = img.shape
+        img_f = img_gray.astype(np.float32)
+        tpl_f = tpl_gray.astype(np.float32)
 
-        correlacion = np.zeros((H - h + 1, W - w + 1), dtype=np.float32)
+        H, W = img_f.shape
+        h, w = tpl_f.shape
 
-        tpl_mean = np.mean(tpl)
-        tpl_std = np.std(tpl)
+        # ---------- 2) Validación tamaños ----------
+        if h > H or w > W:
+            # Template más grande que imagen → no hay match posible
+            return out
 
-        for i in range(H - h + 1):
-            for j in range(W - w + 1):
+        # ---------- 3) Máscara (pixeles “útiles” del template) ----------
+        # Con esto ignoras el fondo negro del template de mario
+        # Ajusta 40–80 según tu template
+        _, mask = cv2.threshold(tpl_gray, 50, 1, cv2.THRESH_BINARY)
+        mask = mask.astype(np.float32)
+        mask_sum = mask.sum() + 1e-6  # evitar división por cero
 
-                region = img[i:i + h, j:j + w]
+        # Precalcular stats del template (solo en zonas de máscara)
+        t_mean = (tpl_f * mask).sum() / mask_sum
+        t_std = np.sqrt(((tpl_f * mask - t_mean) ** 2).sum() / mask_sum) + 1e-6
 
-                region_mean = np.mean(region)
-                region_std = np.std(region)
+        # ---------- 4) NCC ----------
+        corr = np.zeros((H - h + 1, W - w + 1), dtype=np.float32)
 
-                if region_std == 0 or tpl_std == 0:
-                    correlacion[i, j] = 0
-                else:
-                    correlacion[i, j] = np.sum((region - region_mean) * (tpl - tpl_mean)) / (region_std * tpl_std)
+        for y in range(H - h + 1):
+            for x in range(W - w + 1):
+                region = img_f[y:y + h, x:x + w]
 
-        y, x = np.unravel_index(np.argmax(correlacion), correlacion.shape)
+                region_masked = region * mask
+                r_mean = region_masked.sum() / mask_sum
+                r_std = np.sqrt(((region_masked - r_mean) ** 2).sum() / mask_sum) + 1e-6
 
-        output = cv.cvtColor(img_gray, cv.COLOR_GRAY2BGR)
-        cv.rectangle(output, (x, y), (x + w, y + h), (0, 0, 255), 2)
+                num = np.sum((region_masked - r_mean) * (tpl_f * mask - t_mean))
+                corr[y, x] = num / (r_std * t_std)
 
-        return output
+        # ---------- 5) Candidatos por umbral ----------
+        ys, xs = np.where(corr >= threshold)
+        cajas = [[int(x), int(y), int(w), int(h), float(corr[y, x])] for y, x in zip(ys, xs)]
+
+        # Si nada supera umbral → usar máximo
+        if not cajas:
+            y_max, x_max = np.unravel_index(np.argmax(corr), corr.shape)
+            cv2.rectangle(out, (x_max, y_max), (x_max + w, y_max + h), (0, 0, 255), 2)
+            return out
+
+        # Ordenar por score descendente
+        cajas.sort(key=lambda b: b[4], reverse=True)
+
+        # ---------- 6) NMS (eliminar duplicados/solapados) ----------
+        seleccionadas = []
+        for box in cajas:
+            if len(seleccionadas) >= max_matches:
+                break
+            ok = True
+            for kept in seleccionadas:
+                if self.IOU(box, kept) > iou_thresh:
+                    ok = False
+                    break
+            if ok:
+                seleccionadas.append(box)
+
+        # ---------- 7) Dibujar ----------
+        for (x, y, bw, bh, score) in seleccionadas:
+            cv2.rectangle(out, (x, y), (x + bw, y + bh), (0, 0, 255), 2)
+            # opcional: score en pantalla
+            # cv2.putText(out, f"{score:.2f}", (x, y-5),
+            #             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,255,0), 1)
+
+        return out
 
     def clasificador(self, img):
 

@@ -1437,19 +1437,17 @@ class InterfazProcesadorImagenes(ctk.CTk):
                     self.mostrar_mensaje("Para Template Matching se necesitan ambas imágenes cargadas")
                     return
 
-                # Imagen 1 como imagen principal, Imagen 2 como template
-                if self.indice_actual == 0:
-                    imagen_principal = self.imagen_display[0]
-                    template = self.imagen_display[1]
-                else:
-                    imagen_principal = self.imagen_display[1]
-                    template = self.imagen_display[0]
+                #intento de seleccion inteligente
+                imagen_principal = self.imagen_display[0]
+                template = self.imagen_display[1]
 
+                print("hola")
                 # Usar la función ORIGINAL (no la envuelta) para pasar ambos parámetros
                 resultado = funcion_original(img=imagen_principal, template=template)
 
+                print(f"Len de funcion:")
                 # Manejar diferentes tipos de retorno
-                if isinstance(resultado, tuple):
+                if isinstance(resultado, tuple) and len(resultado) > 1:
                     imagen_procesada = resultado[0]
                     # Si es template_match_with_location, mostrar coordenadas en el título
                     if "ubicacion" in funcion_original.__name__.lower() and len(resultado) == 2:

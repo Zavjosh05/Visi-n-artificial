@@ -88,6 +88,7 @@ botones_vision = [
 botones_vision_dos = [
     ("Detector de Esquinas de Harris", "vision.harris", "🧊 Detección de objetos", "panel_objetos", "Detector de Esquinas de Harris"),
     ("Template Matching", "vision.template_match", "🧊 Detección de objetos", "panel_objetos", "Template Matching"),
+    ("Template Matching Artesanal", "vision.template_matching_manual", "🧊 Detección de objetos", "panel_objetos", "Template Matching artesanal"),
     ("Template Matching con Ubicación", "vision.template_match_with_location", "🧊 Detección de objetos", "panel_objetos", "Template Matching con Ubicación"),
     ("Harris OpenCV", "vision.harris_corners", "🧊 Detección de objetos", "panel_objetos", "Harris OpenCV"),
     ("Análisis de perímetro","vision.analisisPerimetro","🧊 Detección de objetos","panel_objetos","Análisis de perímetro"),
