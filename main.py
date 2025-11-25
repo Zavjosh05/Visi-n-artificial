@@ -1369,7 +1369,20 @@ class InterfazProcesadorImagenes(ctk.CTk):
             # Determinar si es template matching
             es_template = "template" in metodo.lower()
             requiere_obj = "vecindad" in metodo.lower()
-    
+
+            # --- DETECCIÓN DE FUNCIÓN ESPECIAL ---
+            if metodo.lower() == "entrenarclasificador_sin_imagen":
+                botones_resultado.append(
+                    (
+                        texto,
+                        lambda fo=funcion_original:
+                        fo()  # LLAMADA DIRECTA SIN GENÉRICA
+                    )
+                )
+                continue
+            # ---------------------------------------
+
+            # Si no es la función especial, usar la lógica normal:
             botones_resultado.append(
                 (
                     texto,
@@ -1679,59 +1692,12 @@ class InterfazProcesadorImagenes(ctk.CTk):
         self.limpiar_pestana("panel_objetos")
         self.limpiar_pestana("panel_histogramas")
 
-def cargarDataset(ruta):
-    imagenes = []
-    etiquetas = []
-
-    for archivo in os.listdir(ruta):
-        rutaIMG = os.path.join(ruta, archivo)
-
-        if not archivo.lower().endswith((".png", ".jpg", ".jpeg")):
-            continue
-
-        img = cv2.imread(rutaIMG)
-        if img is None:
-            continue
-
-        nombre = os.path.splitext(archivo)[0]
-
-        match = re.match(r"[A-Za-z]+", nombre)
-        if match:
-            etiqueta = match.group(0).lower()
-        else:
-            print("No se pudo extraer etiqueta de:", archivo)
-            continue
-
-        imagenes.append(img)
-        etiquetas.append(etiqueta)
-
-    return imagenes, etiquetas
-
-def entrenarClasificador():
-
-    imgs, labels = cargarDataset('dataset')
-
-    X = []
-    y = []
-
-    for img, label in zip(imgs, labels):
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        moments = cv2.moments(gray)
-        hu = cv2.HuMoments(moments).flatten()
-
-        hu = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
-
-        X.append(hu)
-        y.append(label)
-
-    X = np.array(X)
-    y = np.array(y)
-
-    from sklearn.neighbors import KNeighborsClassifier
-    clf = KNeighborsClassifier(5000)
-    clf.fit(X, y)
-
-    return clf
+    def entrenarClasificador_sin_imagen(self):
+        try:
+            self.vision.entrenarClasificador()
+            self.mostrar_mensaje("Modelo entrenado correctamente y guardado como modelo.pkl")
+        except Exception as e:
+            self.mostrar_mensaje(f"❌ Error al entrenar: {str(e)}")
 
 
 if __name__ == "__main__":

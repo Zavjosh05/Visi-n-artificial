@@ -3,10 +3,13 @@ import numpy as np
 import cv2 as cv
 import tkinter as tk
 import pandas
+import sklearn
 from tkinter import ttk
 import os
 import re
-from joblib import load
+from joblib import load, dump
+from sklearn.neighbors import KNeighborsClassifier
+
 
 class Vision:
     def __init__(self):
@@ -411,14 +414,12 @@ class Vision:
     def descriptores(self, img):
         """
         Calcula TODOS los descriptores (región + perímetro).
-        Devuelve una imagen que muestra SOLO contornos y bounding boxes de los objetos,
-        SIN texto ni números encima.
-        Además muestra una tabla con todos los descriptores.
         """
 
         import customtkinter as ctk
         from tkinter import filedialog
         import pandas as pd
+
 
         # Copia limpia donde se dibujarán solo contornos/cajas
         imagen_out = img.copy()
@@ -474,7 +475,7 @@ class Vision:
                 excentricidad, w, h, aspect_ratio
             ])
 
-        # ---------------- TABLA INTERACTIVA -----------------
+        # TABLA
         tabla = ctk.CTkToplevel()
         tabla.title("Tabla de Descriptores")
         tabla.geometry("1100x500")
@@ -502,7 +503,6 @@ class Vision:
         sort_reverse = {col: False for col in df.columns}
         filas_widgets = []
 
-        # --- Dibujar tabla ---
         def dibujar_tabla(data):
             for w in scroll.winfo_children():
                 w.destroy()
@@ -526,13 +526,11 @@ class Vision:
                     fila_labels.append(lbl)
                 filas_widgets.append((fila, fila_labels))
 
-        # --- Ordenar ---
         def ordenar_por(col):
             sort_reverse[col] = not sort_reverse[col]
             df_ordenado = df.sort_values(col, ascending=not sort_reverse[col])
             dibujar_tabla(df_ordenado)
 
-        # --- Filtrar ---
         def filtrar(_=None):
             texto = entrada_buscar.get().lower()
             df_filtrado = df[df.apply(lambda row: texto in row.to_string().lower(), axis=1)]
@@ -540,7 +538,6 @@ class Vision:
 
         entrada_buscar.bind("<KeyRelease>", filtrar)
 
-        # --- Exportar CSV ---
         def exportar_csv():
             ruta = filedialog.asksaveasfilename(
                 title="Guardar CSV",
@@ -556,7 +553,6 @@ class Vision:
         # Dibujar tabla inicial
         dibujar_tabla(df)
 
-        # ------------------ REGRESAR IMAGEN ------------------
         return imagen_out
 
     def descriptores_region(self, img):
@@ -874,34 +870,6 @@ class Vision:
 
         return lap
 
-    # def skeleton_morfologia(self, img):
-    #     """
-    #     Obtiene el esqueleto usando morfología matemática (iteraciones de erosión-apertura).
-    #     Devuelve una imagen binaria en formato OpenCV.
-    #     """
-    #
-    #     if len(img.shape) == 3:
-    #         img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    #
-    #     _, img = cv.threshold(img, 127, 255, cv.THRESH_BINARY)
-    #
-    #     img = img.copy()
-    #     skel = np.zeros(img.shape, np.uint8)
-    #
-    #     elemento = cv.getStructuringElement(cv.MORPH_CROSS, (3, 3))
-    #
-    #     while True:
-    #         erosion = cv.erode(img, elemento)
-    #         apertura = cv.morphologyEx(erosion, cv.MORPH_OPEN, elemento)
-    #         temp = cv.subtract(erosion, apertura)
-    #         skel = cv.bitwise_or(skel, temp)
-    #         img = erosion.copy()
-    #
-    #         if cv.countNonZero(img) == 0:
-    #             break
-    #
-    #     return skel
-
     def erosion_manual(self, img, kernel=None):
         if len(img.shape) == 3:
             img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -1081,45 +1049,243 @@ class Vision:
 
         return out
 
+    def cargarDataset(self, ruta):
+        imagenes = []
+        etiquetas = []
+
+        for archivo in os.listdir(ruta):
+            rutaIMG = os.path.join(ruta, archivo)
+
+            if not archivo.lower().endswith((".png", ".jpg", ".jpeg")):
+                continue
+
+            img = cv2.imread(rutaIMG)
+            if img is None:
+                continue
+
+            nombre = os.path.splitext(archivo)[0]
+
+            match = re.match(r"[A-Za-z]+", nombre)
+            if match:
+                etiqueta = match.group(0).lower()
+            else:
+                print("No se pudo extraer etiqueta de:", archivo)
+                continue
+
+            imagenes.append(img)
+            etiquetas.append(etiqueta)
+
+        return imagenes, etiquetas
+
+    def entrenarClasificador(self):
+
+        print("🚀 Entrenando clasificador avanzando...")
+
+        from sklearn.ensemble import RandomForestClassifier
+        from joblib import dump
+
+        imgs, labels = self.cargarDataset("dataset")
+
+        X = []
+        y = []
+
+        for img, label in zip(imgs, labels):
+
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5, 5), 0)
+
+            # OTSU invertido
+            _, bin_img = cv2.threshold(
+                blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+            )
+
+            # Engrosar contornos
+            kernel = np.ones((3, 3), np.uint8)
+            bin_img = cv2.dilate(bin_img, kernel, iterations=2)
+
+            contornos, _ = cv2.findContours(
+                bin_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+
+            for cnt in contornos:
+
+                area = cv2.contourArea(cnt)
+                if area < 20:
+                    continue
+
+                x, y1, w, h = cv2.boundingRect(cnt)
+
+                perimetro = cv2.arcLength(cnt, True)
+                circularidad = (4 * np.pi * area) / (perimetro ** 2 + 1e-6)
+                compactacion = (perimetro ** 2) / (area + 1e-6)
+
+                # Excentricidad
+                if len(cnt) >= 5:
+                    (_, _), (a1, a2), _ = cv2.fitEllipse(cnt)
+                    mayor = max(a1, a2)
+                    menor = min(a1, a2)
+                    excentricidad = np.sqrt(1 - (menor / mayor) ** 2)
+                else:
+                    excentricidad = 0
+
+                aspect_ratio = w / (h + 1e-6)
+
+                # --- NUEVO DESCRIPTOR 1: SOLIDEZ ---
+                hull = cv2.convexHull(cnt)
+                hull_area = cv2.contourArea(hull)
+                solidez = area / (hull_area + 1e-6)
+
+                # --- NUEVO DESCRIPTOR 2: Nº DE VÉRTICES ---
+                epsilon = 0.01 * perimetro
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                vertices = len(approx)
+
+                # --- NUEVO DESCRIPTOR 3: PERÍMETRO / ÁREA ---
+                ratio_per_area = perimetro / (area + 1e-6)
+
+                # Roi normalizado
+                roi = bin_img[y1:y1 + h, x:x + w]
+                roi = cv2.resize(roi, (128, 128), interpolation=cv2.INTER_NEAREST)
+
+                # Momentos de Hu
+                M = cv2.moments(roi)
+                hu = cv2.HuMoments(M).flatten()
+                hu = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
+
+                # Vector de características final
+                vector = [
+                    area,
+                    perimetro,
+                    circularidad,
+                    compactacion,
+                    excentricidad,
+                    aspect_ratio,
+
+                    solidez,
+                    vertices,
+                    ratio_per_area,
+
+                    *hu  # 7 valores
+                ]
+
+                X.append(vector)
+                y.append(label)
+
+        X = np.array(X)
+        y = np.array(y)
+
+        print(f"📌 Total de características por muestra: {X.shape[1]} (deben ser 17)")
+        print(f"📌 Total muestras: {len(y)}")
+
+        # Modelo más preciso
+        clf = RandomForestClassifier(n_estimators=200, random_state=42)
+        clf.fit(X, y)
+
+        dump(clf, "modelo.pkl")
+
+        print("✅ Modelo avanzado entrenado correctamente y guardado.")
+        return clf
+
     def clasificador(self, img):
 
-        clf = load("modelo.pkl")
+        # Cargar modelo
+        try:
+            clf = load("modelo.pkl")
+        except:
+            print("❌ No se pudo cargar modelo.pkl. Entrena el modelo primero.")
+            return img
 
         salida = img.copy()
 
+        # Convertir a gris y suavizar
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        _, thresh = cv2.threshold(blur, 0, 255,cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        # OTSU invertido (figuras negras → blancas)
+        _, bin_img = cv2.threshold(
+            blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
 
-        thresh = cv2.bitwise_not(thresh)
+        # Engrosar contornos para figuras de línea
+        kernel = np.ones((3, 3), np.uint8)
+        bin_img = cv2.dilate(bin_img, kernel, iterations=2)
 
-        contornos, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # Encontrar contornos
+        contornos, _ = cv2.findContours(
+            bin_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
 
         for cnt in contornos:
 
             area = cv2.contourArea(cnt)
-            if area < 200:
+            if area < 20:
                 continue
 
             x, y, w, h = cv2.boundingRect(cnt)
 
-            roi = thresh[y:y + h, x:x + w]
+            # ------------ DESCRIPTORES MEJORADOS ------------
 
-            white_ratio_roi = np.sum(roi == 255) / roi.size
-            if white_ratio_roi < 0.5:
-                roi = cv2.bitwise_not(roi)
+            perimetro = cv2.arcLength(cnt, True)
+            circularidad = (4 * np.pi * area) / (perimetro ** 2 + 1e-6)
+            compactacion = (perimetro ** 2) / (area + 1e-6)
 
-            moments = cv2.moments(roi)
-            hu = cv2.HuMoments(moments).flatten()
+            # Excentricidad
+            if len(cnt) >= 5:
+                (_, _), (a1, a2), _ = cv2.fitEllipse(cnt)
+                mayor = max(a1, a2)
+                menor = min(a1, a2)
+                excentricidad = np.sqrt(1 - (menor / mayor) ** 2)
+            else:
+                excentricidad = 0.0
 
+            aspect_ratio = w / (h + 1e-6)
+
+            # SOLIDEZ
+            hull = cv2.convexHull(cnt)
+            hull_area = cv2.contourArea(hull)
+            solidez = area / (hull_area + 1e-6)
+
+            # VÉRTICES
+            epsilon = 0.01 * perimetro
+            approx = cv2.approxPolyDP(cnt, epsilon, True)
+            vertices = len(approx)
+
+            # RATIO PERÍMETRO/ÁREA
+            ratio_per_area = perimetro / (area + 1e-6)
+
+            # ROI normalizada
+            roi = bin_img[y:y + h, x:x + w]
+            roi = cv2.resize(roi, (128, 128), interpolation=cv2.INTER_NEAREST)
+
+            # Hu Moments normalizados
+            M = cv2.moments(roi)
+            hu = cv2.HuMoments(M).flatten()
             hu = -np.sign(hu) * np.log10(np.abs(hu) + 1e-10)
 
-            pred = clf.predict([hu])[0]
+            # VECTOR FINAL (17 características)
+            X = np.array([
+                area,
+                perimetro,
+                circularidad,
+                compactacion,
+                excentricidad,
+                aspect_ratio,
 
-            cv2.rectangle(salida, (x, y), (x + w, y + h), (0,0,255), 3)
-            cv2.putText(salida, pred,(x, y - 10),cv2.FONT_HERSHEY_SIMPLEX,1, (0,0,255), 3
+                solidez,
+                vertices,
+                ratio_per_area,
+
+                *hu
+            ]).reshape(1, -1)
+
+            # Predicción
+            pred = clf.predict(X)[0]
+
+            # Dibujar resultado
+            cv2.rectangle(salida, (x, y), (x + w, y + h), (0, 0, 255), 3)
+            cv2.putText(
+                salida, pred, (x, y - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2
             )
 
         return salida
