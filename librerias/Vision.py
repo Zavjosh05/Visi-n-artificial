@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import cv2 as cv
 import tkinter as tk
+import pandas
 from tkinter import ttk
 import os
 import re
@@ -408,49 +409,241 @@ class Vision:
         return output
 
     def descriptores(self, img):
-        if len(img.shape) == 3:
-            img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        else:
-            img_gray = img.copy()
+        """
+        Calcula TODOS los descriptores (región + perímetro).
+        Devuelve una imagen que muestra SOLO contornos y bounding boxes de los objetos,
+        SIN texto ni números encima.
+        Además muestra una tabla con todos los descriptores.
+        """
 
-        _, thresh = cv2.threshold(img_gray, 127, 255, cv2.THRESH_BINARY)
+        import customtkinter as ctk
+        from tkinter import filedialog
+        import pandas as pd
+
+        # Copia limpia donde se dibujarán solo contornos/cajas
+        imagen_out = img.copy()
+        if len(imagen_out.shape) == 2:
+            imagen_out = cv2.cvtColor(imagen_out, cv2.COLOR_GRAY2BGR)
+
+        # Imagen gris
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        # Umbral
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+        lista = []  # Tabla de valores
+
+        for i, cnt in enumerate(contours):
+
+            area = cv2.contourArea(cnt)
+            if area < 50:
+                continue
+
+            perimetro = cv2.arcLength(cnt, True)
+            circularidad = (4 * np.pi * area) / (perimetro ** 2 + 1e-6)
+            compactidad = (perimetro ** 2) / (area + 1e-6)
+
+            # Excentricidad
+            if len(cnt) >= 5:
+                (x, y), (a1, a2), angle = cv2.fitEllipse(cnt)
+                mayor = max(a1, a2)
+                menor = min(a1, a2)
+                excentricidad = np.sqrt(1 - (menor / mayor) ** 2)
+            else:
+                excentricidad = 0
+
+            # Bounding box
+            bx, by, w, h = cv2.boundingRect(cnt)
+            aspect_ratio = w / (h + 1e-6)
+
+            # ---------- DIBUJAR DESCRIPTORES EN LA IMAGEN ----------
+            # Contorno
+            cv2.drawContours(imagen_out, [cnt], -1, (0, 255, 0), 2)
+
+            # Bounding box
+            cv2.rectangle(imagen_out, (bx, by), (bx + w, by + h), (0, 0, 255), 2)
+
+            # ---------- GUARDAR PARA TABLA ----------
+            lista.append([
+                i, area, perimetro, circularidad, compactidad,
+                excentricidad, w, h, aspect_ratio
+            ])
+
+        # ---------------- TABLA INTERACTIVA -----------------
+        tabla = ctk.CTkToplevel()
+        tabla.title("Tabla de Descriptores")
+        tabla.geometry("1100x500")
+        tabla.grab_set()
+
+        df = pd.DataFrame(lista, columns=[
+            "ID", "Área", "Perímetro", "Circularidad",
+            "Compactidad", "Excentricidad", "BBox_W",
+            "BBox_H", "Aspect_Ratio"
+        ])
+
+        # Búsqueda
+        buscar_frame = ctk.CTkFrame(tabla)
+        buscar_frame.pack(pady=10)
+
+        lbl_buscar = ctk.CTkLabel(buscar_frame, text="🔍 Buscar:")
+        lbl_buscar.grid(row=0, column=0, padx=5)
+
+        entrada_buscar = ctk.CTkEntry(buscar_frame, width=250)
+        entrada_buscar.grid(row=0, column=1, padx=5)
+
+        scroll = ctk.CTkScrollableFrame(tabla, width=1050, height=350)
+        scroll.pack(pady=10)
+
+        sort_reverse = {col: False for col in df.columns}
+        filas_widgets = []
+
+        # --- Dibujar tabla ---
+        def dibujar_tabla(data):
+            for w in scroll.winfo_children():
+                w.destroy()
+            filas_widgets.clear()
+
+            # Encabezados clickeables
+            for col_idx, col in enumerate(data.columns):
+                btn_col = ctk.CTkButton(
+                    scroll, text=col, width=100,
+                    command=lambda c=col: ordenar_por(c)
+                )
+                btn_col.grid(row=0, column=col_idx, padx=5, pady=5)
+
+            # Filas
+            for r, fila in data.iterrows():
+                fila_labels = []
+                for c, valor in enumerate(fila):
+                    txt = f"{valor:.4f}" if isinstance(valor, float) else str(valor)
+                    lbl = ctk.CTkLabel(scroll, text=txt)
+                    lbl.grid(row=r + 1, column=c, padx=5, pady=3)
+                    fila_labels.append(lbl)
+                filas_widgets.append((fila, fila_labels))
+
+        # --- Ordenar ---
+        def ordenar_por(col):
+            sort_reverse[col] = not sort_reverse[col]
+            df_ordenado = df.sort_values(col, ascending=not sort_reverse[col])
+            dibujar_tabla(df_ordenado)
+
+        # --- Filtrar ---
+        def filtrar(_=None):
+            texto = entrada_buscar.get().lower()
+            df_filtrado = df[df.apply(lambda row: texto in row.to_string().lower(), axis=1)]
+            dibujar_tabla(df_filtrado)
+
+        entrada_buscar.bind("<KeyRelease>", filtrar)
+
+        # --- Exportar CSV ---
+        def exportar_csv():
+            ruta = filedialog.asksaveasfilename(
+                title="Guardar CSV",
+                defaultextension=".csv",
+                filetypes=[("CSV", "*.csv")]
+            )
+            if ruta:
+                df.to_csv(ruta, index=False)
+
+        btn_csv = ctk.CTkButton(tabla, text="💾 Exportar CSV", width=200, command=exportar_csv)
+        btn_csv.pack(pady=10)
+
+        # Dibujar tabla inicial
+        dibujar_tabla(df)
+
+        # ------------------ REGRESAR IMAGEN ------------------
+        return imagen_out
+
+    def descriptores_region(self, img):
+        """
+        Calcula descriptores de REGIÓN (área, circularidad, compactidad, excentricidad).
+        """
+
+        # A gris
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        # Otsu
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
         output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
 
         for i, cnt in enumerate(contours):
             area = cv2.contourArea(cnt)
+            if area < 50:
+                continue
+
             perimetro = cv2.arcLength(cnt, True)
 
-            # Circularidad
-            if perimetro == 0:
-                circularidad = 0
-            else:
-                circularidad = (4 * np.pi * area) / (perimetro ** 2)
+            circularidad = (4 * np.pi * area) / (perimetro ** 2 + 1e-6)
+            compactidad = (perimetro ** 2) / (area + 1e-6)
 
-            # Compactidad
-            if area != 0:
-                compactidad = (perimetro ** 2) / area
-            else:
-                compactidad = 0
-
-            # Excentricidad
+            # Excentricidad corregida
             if len(cnt) >= 5:
-                (x, y), (MA, ma), angle = cv2.fitEllipse(cnt)
-                excentricidad = np.sqrt(1 - (MA / ma) ** 2) if ma != 0 else 0
+                (x, y), (a1, a2), angle = cv2.fitEllipse(cnt)
+                mayor = max(a1, a2)
+                menor = min(a1, a2)
+                excentricidad = np.sqrt(1 - (menor / mayor) ** 2)
             else:
                 excentricidad = 0
 
+            # Centroide
             M = cv2.moments(cnt)
-            if M["m00"] != 0:
-                cx = int(M["m10"] / M["m00"])
-                cy = int(M["m01"] / M["m00"])
-            else:
-                cx, cy = cnt[0][0]
+            cx = int(M["m10"] / (M["m00"] + 1e-6))
+            cy = int(M["m01"] / (M["m00"] + 1e-6))
 
-            cv2.drawContours(output, [cnt], -1, (0, 255, 0), 2)
-            texto = f"{i}"
-            print(f"{i}:\tCircularidad: {circularidad:.1f}, Compactidad: {compactidad:.1f}, Excentricidad: {excentricidad:.2f}")
-            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 0, 255), 1)
+
+
+            print(
+                f"[REGION {i}] Area={area:.2f}  Circ={circularidad:.3f}  "
+                f"Comp={compactidad:.3f}  Exc={excentricidad:.3f}"
+            )
+
+        return output
+
+    def descriptores_perimetro(self, img):
+        """
+        Calcula descriptores de PERÍMETRO (perímetro, bbox, aspect ratio).
+        """
+
+        if len(img.shape) == 3:
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = img.copy()
+
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        output = cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR)
+
+        for i, cnt in enumerate(contours):
+
+            area = cv2.contourArea(cnt)
+            if area < 50:
+                continue
+
+            perimetro = cv2.arcLength(cnt, True)
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            # Centroide
+            M = cv2.moments(cnt)
+            cx = int(M["m10"] / (M["m00"] + 1e-6))
+            cy = int(M["m01"] / (M["m00"] + 1e-6))
+
+
+
+            print(
+                f"[PERIM {i}] Perímetro={perimetro:.2f}  "
+                f"Ancho={w}  Alto={h}  Aspect={w / (h + 1e-6):.3f}"
+            )
 
         return output
 
@@ -478,7 +671,7 @@ class Vision:
             zReconstruido = np.fft.ifft(zReducido)
             puntos = np.array([[int(p.real), int(p.imag)] for p in zReconstruido])
 
-            cv2.polylines(output, [puntos], isClosed=True, color=(255, 0, 0), thickness=1)
+            #cv2.polylines(output, [puntos], isClosed=True, color=(255, 0, 0), thickness=1)
 
             perimetro = cv2.arcLength(puntos, closed=True)
 
@@ -492,7 +685,7 @@ class Vision:
                 cx, cy = cnt[0][0]
 
             texto = f"{i}"
-            cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+            #cv2.putText(output, texto, (cx, cy), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
 
         return output
 
@@ -797,16 +990,12 @@ class Vision:
 
         return interArea / float(boxAArea + boxBArea - interArea + 1e-5)
 
-    def template_matching_manual(self, img, template, threshold=0.80, iou_thresh=0.30, max_matches=50):
+    def template_matching_manual(self, img, template, threshold=0.80, iou_thresh=0.30, max_matches=19):
         """
         Template Matching artesanal con correlación cruzada normalizada (NCC) + máscara + NMS.
-        - No binariza la imagen principal
-        - Usa máscara del template para evitar fondo
-        - Permite varios matches sin cuadros sobrepuestos
-        Devuelve imagen BGR con rectángulos.
         """
 
-        # ---------- 1) Grises ----------
+        # 1) Grises
         if img is None or template is None:
             return None
 
@@ -832,14 +1021,12 @@ class Vision:
         H, W = img_f.shape
         h, w = tpl_f.shape
 
-        # ---------- 2) Validación tamaños ----------
+        # 2) Validación tamaños
         if h > H or w > W:
             # Template más grande que imagen → no hay match posible
             return out
 
-        # ---------- 3) Máscara (pixeles “útiles” del template) ----------
-        # Con esto ignoras el fondo negro del template de mario
-        # Ajusta 40–80 según tu template
+        # 3) Máscara
         _, mask = cv2.threshold(tpl_gray, 50, 1, cv2.THRESH_BINARY)
         mask = mask.astype(np.float32)
         mask_sum = mask.sum() + 1e-6  # evitar división por cero
@@ -848,7 +1035,7 @@ class Vision:
         t_mean = (tpl_f * mask).sum() / mask_sum
         t_std = np.sqrt(((tpl_f * mask - t_mean) ** 2).sum() / mask_sum) + 1e-6
 
-        # ---------- 4) NCC ----------
+        # 4) NCC
         corr = np.zeros((H - h + 1, W - w + 1), dtype=np.float32)
 
         for y in range(H - h + 1):
@@ -875,7 +1062,7 @@ class Vision:
         # Ordenar por score descendente
         cajas.sort(key=lambda b: b[4], reverse=True)
 
-        # ---------- 6) NMS (eliminar duplicados/solapados) ----------
+        # 6) NMS (eliminar duplicados/solapados)
         seleccionadas = []
         for box in cajas:
             if len(seleccionadas) >= max_matches:
@@ -888,12 +1075,9 @@ class Vision:
             if ok:
                 seleccionadas.append(box)
 
-        # ---------- 7) Dibujar ----------
+        # 7) Dibujar
         for (x, y, bw, bh, score) in seleccionadas:
             cv2.rectangle(out, (x, y), (x + bw, y + bh), (0, 0, 255), 2)
-            # opcional: score en pantalla
-            # cv2.putText(out, f"{score:.2f}", (x, y-5),
-            #             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0,255,0), 1)
 
         return out
 

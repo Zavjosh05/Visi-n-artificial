@@ -1441,11 +1441,9 @@ class InterfazProcesadorImagenes(ctk.CTk):
                 imagen_principal = self.imagen_display[0]
                 template = self.imagen_display[1]
 
-                print("hola")
                 # Usar la función ORIGINAL (no la envuelta) para pasar ambos parámetros
                 resultado = funcion_original(img=imagen_principal, template=template)
 
-                print(f"Len de funcion:")
                 # Manejar diferentes tipos de retorno
                 if isinstance(resultado, tuple) and len(resultado) > 1:
                     imagen_procesada = resultado[0]
