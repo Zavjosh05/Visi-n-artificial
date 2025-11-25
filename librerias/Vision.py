@@ -1130,12 +1130,12 @@ class Vision:
 
                 aspect_ratio = w / (h + 1e-6)
 
-                # --- NUEVO DESCRIPTOR 1: SOLIDEZ ---
+                # NUEVO DESCRIPTOR 1: SOLIDEZ
                 hull = cv2.convexHull(cnt)
                 hull_area = cv2.contourArea(hull)
                 solidez = area / (hull_area + 1e-6)
 
-                # --- NUEVO DESCRIPTOR 2: Nº DE VÉRTICES ---
+                # NUEVO DESCRIPTOR 2: Nº DE VÉRTICES
                 epsilon = 0.01 * perimetro
                 approx = cv2.approxPolyDP(cnt, epsilon, True)
                 vertices = len(approx)
@@ -1177,7 +1177,7 @@ class Vision:
         print(f"📌 Total de características por muestra: {X.shape[1]} (deben ser 17)")
         print(f"📌 Total muestras: {len(y)}")
 
-        # Modelo más preciso
+        #Modelo
         clf = RandomForestClassifier(n_estimators=200, random_state=42)
         clf.fit(X, y)
 
@@ -1197,11 +1197,10 @@ class Vision:
 
         salida = img.copy()
 
-        # Convertir a gris y suavizar
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blur = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # OTSU invertido (figuras negras → blancas)
+        # OTSU invertido
         _, bin_img = cv2.threshold(
             blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
@@ -1222,8 +1221,6 @@ class Vision:
                 continue
 
             x, y, w, h = cv2.boundingRect(cnt)
-
-            # ------------ DESCRIPTORES MEJORADOS ------------
 
             perimetro = cv2.arcLength(cnt, True)
             circularidad = (4 * np.pi * area) / (perimetro ** 2 + 1e-6)
